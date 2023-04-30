@@ -1,7 +1,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include <gran/components/mem/simple_mem.h>
+#include <gran/mem/simple_mem.h>
 
 struct simple_mem {
 	struct component component;

@@ -1,5 +1,5 @@
-#ifndef EXSIM_COMMON_H
-#define EXSIM_COMMON_H
+#ifndef GRAN_COMMON_H
+#define GRAN_COMMON_H
 
 #include <stdio.h>
 
@@ -31,4 +31,4 @@ typedef enum {
 #define debug(x, ...)
 #endif
 
-#endif /* EXSIM_COMMON_H */
+#endif /* GRAN_COMMON_H */

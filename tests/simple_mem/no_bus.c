@@ -2,7 +2,7 @@
 
 #include <gran/root.h>
 #include <gran/clock_domain.h>
-#include <gran/components/mem/simple_mem.h>
+#include <gran/mem/simple_mem.h>
 
 #include "traffic_gen.h"
 

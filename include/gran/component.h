@@ -1,5 +1,5 @@
-#ifndef EXSIM_COMPONENT_H
-#define EXSIM_COMPONENT_H
+#ifndef GRAN_COMPONENT_H
+#define GRAN_COMPONENT_H
 
 #include <stdint.h>
 #include <stdio.h>
@@ -104,4 +104,4 @@ static inline stat swap_u8(struct component *component, uintptr_t addr,
 	return swap(component, addr, sizeof(uint8_t), c, sizeof(uint8_t), c);
 }
 
-#endif /* EXSIM_COMPONENT_H */
+#endif /* GRAN_COMPONENT_H */

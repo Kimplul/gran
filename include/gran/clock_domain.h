@@ -1,5 +1,5 @@
-#ifndef EXSIM_CLOCK_DOMAIN_H
-#define EXSIM_CLOCK_DOMAIN_H
+#ifndef GRAN_CLOCK_DOMAIN_H
+#define GRAN_CLOCK_DOMAIN_H
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -37,4 +37,4 @@ bool le_time(struct clock_time a, struct clock_time b);
 struct clock_time max_time(struct clock_time a, struct clock_time b);
 struct clock_time domain_time(struct clock_domain *);
 
-#endif /* EXSIM_CLOCK_DOMAIN_H */
+#endif /* GRAN_CLOCK_DOMAIN_H */

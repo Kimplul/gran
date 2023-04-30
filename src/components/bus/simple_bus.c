@@ -5,7 +5,7 @@
 #include <gran/common.h>
 #include <gran/component.h>
 
-#include <gran/components/bus/simple_bus.h>
+#include <gran/bus/simple_bus.h>
 
 struct mem_region {
 	uintptr_t addr;
