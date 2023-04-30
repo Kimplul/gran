@@ -65,3 +65,6 @@ clean:
 .PHONY: clean_docs
 clean_docs:
 	@$(RM) -r docs/output
+
+.PHONY: clean_all
+clean_all: clean clean_docs
