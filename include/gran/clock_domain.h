@@ -1,3 +1,6 @@
+/* SPDX-License-Identifier: copyleft-next-0.3.1 */
+/* Copyright 2023 Kim Kuparinen < kimi.h.kuparinen@gmail.com > */
+
 #ifndef GRAN_CLOCK_DOMAIN_H
 #define GRAN_CLOCK_DOMAIN_H
 

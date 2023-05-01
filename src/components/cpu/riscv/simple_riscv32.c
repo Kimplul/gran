@@ -1,3 +1,6 @@
+/* SPDX-License-Identifier: copyleft-next-0.3.1 */
+/* Copyright 2023 Kim Kuparinen < kimi.h.kuparinen@gmail.com > */
+
 #include <gran/cpu/riscv/simple_riscv32.h>
 
 struct simple_riscv32 {
@@ -43,7 +46,9 @@ static stat simple_riscv32_clock(struct simple_riscv32 *cpu)
 	return OK;
 }
 
-struct componen *create_simple_riscv32(uint32_t start_pc, struct component *imem, struct component *dmem)
+struct componen *create_simple_riscv32(uint32_t start_pc,
+                                       struct component *imem,
+                                       struct component *dmem)
 {
 	struct component *new = calloc(1, sizeof(simple_riscv32));
 	if (!new)

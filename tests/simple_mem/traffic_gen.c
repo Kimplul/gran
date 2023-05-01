@@ -1,3 +1,6 @@
+/* SPDX-License-Identifier: copyleft-next-0.3.1 */
+/* Copyright 2023 Kim Kuparinen < kimi.h.kuparinen@gmail.com > */
+
 #include <stdlib.h>
 #include <assert.h>
 
@@ -44,7 +47,8 @@ void traffic_gen_destroy(struct traffic_gen *tg)
 	free(tg);
 }
 
-struct component *create_traffic_gen(struct component *stress, uintptr_t start, size_t size)
+struct component *create_traffic_gen(struct component *stress, uintptr_t start,
+                                     size_t size)
 {
 	struct traffic_gen *new = calloc(1, sizeof(struct traffic_gen));
 	if (!new)

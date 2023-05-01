@@ -1,3 +1,6 @@
+/* SPDX-License-Identifier: copyleft-next-0.3.1 */
+/* Copyright 2023 Kim Kuparinen < kimi.h.kuparinen@gmail.com > */
+
 #include <assert.h>
 
 #include <gran/root.h>
@@ -15,7 +18,8 @@ int main()
 	struct component *simple_bus = create_simple_bus();
 	simple_bus_add(simple_bus, simple_mem, addr, size);
 
-	struct component *traffic_gen = create_traffic_gen(simple_mem, addr, size);
+	struct component *traffic_gen = create_traffic_gen(simple_mem, addr,
+	                                                   size);
 
 	struct clock_domain *clk = create_clock_domain(NS(1));
 	clock_domain_add(clk, traffic_gen);

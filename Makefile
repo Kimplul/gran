@@ -36,20 +36,18 @@ lint: $(OBJS:.o=.o.l)
 
 .PHONY: format
 format:
-	@cd src; find . -iname '*.[ch]' |\
-		xargs -n 10 -P 0 uncrustify -c ../uncrustify.conf --no-backup -F -
-	@cd include; find . -iname '*.[ch]' |\
-		xargs -n 10 -P 0 uncrustify -c ../uncrustify.conf --no-backup -F -
+	find src include tests -iname '*.[ch]' |\
+		xargs -n 10 -P 0 uncrustify -c uncrustify.conf --no-backup -F -
 
 .PHONY: license
 license:
-	@find . -iname '*.[ch]' |\
+	find src include tests -iname '*.[ch]' |\
 		xargs -n 10 -P 0 ./scripts/license
 
 .PHONY: docs
 docs:
-	@./scripts/warn-undocumented
-	@doxygen docs/doxygen.conf
+	./scripts/warn-undocumented
+	doxygen docs/doxygen.conf
 
 .PHONY: check
 check: $(TEST_PROGS)
@@ -60,11 +58,11 @@ gran: $(MAIN_OBJ) $(OBJS)
 
 .PHONY: clean
 clean:
-	@$(RM) -r build gran deps.mk
+	$(RM) -r build gran deps.mk
 
 .PHONY: clean_docs
 clean_docs:
-	@$(RM) -r docs/output
+	$(RM) -r docs/output
 
 .PHONY: clean_all
 clean_all: clean clean_docs
