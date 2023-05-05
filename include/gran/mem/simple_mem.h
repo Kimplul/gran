@@ -7,5 +7,6 @@
 #include <gran/component.h>
 
 struct component *create_simple_mem(size_t size);
+void init_simple_mem(struct component *mem, uintptr_t addr, size_t size, void *data);
 
 #endif /* GRAN_SIMPLE_MEM_H */

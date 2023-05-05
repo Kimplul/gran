@@ -6,20 +6,25 @@
 
 #include <stdint.h>
 #include <stdio.h>
+#include <assert.h>
 #include <stdlib.h>
 #include <inttypes.h>
 
 #include <gran/common.h>
+#include <gran/packet.h>
+#include <gran/snoop.h>
 
 struct component;
 
-typedef stat (*write_callback)(struct component *, uintptr_t, size_t, void *);
-typedef stat (*read_callback)(struct component *, uintptr_t, size_t, void *);
-typedef stat (*swap_callback)(struct component *, uintptr_t, size_t, void *,
-                              size_t, void *);
+typedef stat (*read_callback)(struct component *, struct packet *pkt);
+typedef stat (*write_callback)(struct component *, struct packet *pkt);
+typedef stat (*swap_callback)(struct component *, struct packet *pkt);
+
+typedef stat (*snoop_callback)(struct component *, struct snoop *snoop);
+typedef stat (*ctrl_callback)(struct component *, struct packet *pkt);
+
 typedef stat (*irq_callback)(struct component *, int);
 typedef stat (*clock_callback)(struct component *);
-
 typedef stat (*stat_callback)(struct component *, FILE *);
 typedef stat (*dts_callback)(struct component *, FILE *);
 
@@ -29,9 +34,12 @@ struct component {
 	/* optional */
 	char *name;
 
-	write_callback write;
 	read_callback read;
+	write_callback write;
 	swap_callback swap;
+
+	snoop_callback snoop;
+	ctrl_callback ctrl;
 
 	irq_callback irq;
 	clock_callback clock;
@@ -42,69 +50,57 @@ struct component {
 	destroy_callback destroy;
 };
 
-static inline stat write(struct component *component, uintptr_t addr,
-                         size_t size, void *buf)
+static inline stat write(struct component *component, struct packet *pkt)
 {
+	assert(packet_type(pkt) == PACKET_WRITE);
 	if (!component->write) {
+		/* printf formatted asserts would maybe be preferable? */
 		error(
 			"tried writing %p:%" PRIuPTR " but it doesn't support writing",
-			component->name, addr);
+			component->name, packet_addr(pkt));
 		return ENOSUCH;
 	}
 
-	return component->write(component, addr, size, buf);
+	packet_set_state(pkt, PACKET_SENT);
+	return component->write(component, pkt);
 }
 
-static inline stat read(struct component *component, uintptr_t addr,
-                        size_t size, void *buf)
+static inline stat read(struct component *component, struct packet *pkt)
 {
+	assert(packet_type(pkt) == PACKET_READ);
 	if (!component->read) {
 		error(
 			"tried reading %p:%" PRIuPTR " but it doesn't support reading",
-			component->name, addr);
+			component->name, packet_addr(pkt));
 		return ENOSUCH;
 	}
 
-	return component->read(component, addr, size, buf);
+	packet_set_state(pkt, PACKET_SENT);
+	return component->read(component, pkt);
 }
 
-static inline stat swap(struct component *component, uintptr_t addr,
-                        size_t wsize, void *wbuf, size_t rsize, void *rbuf)
+static inline stat swap(struct component *component, struct packet *pkt)
 {
+	assert(packet_type(pkt) == PACKET_SWAP);
 	if (!component->swap) {
 		error(
 			"tried swapping %p:%" PRIuPTR " but it doesn't support swapping",
-			component->name, addr);
+			component->name, packet_addr(pkt));
 		return ENOSUCH;
 	}
 
-	return component->swap(component, addr, wsize, wbuf, rsize, rbuf);
+	packet_set_state(pkt, PACKET_SENT);
+	return component->swap(component, pkt);
 }
 
 static inline void destroy(struct component *component)
 {
+	free(component->name);
+
 	if (component->destroy)
 		component->destroy(component);
 	else
 		free(component);
-}
-
-static inline stat write_u8(struct component *component, uintptr_t addr,
-                            uint8_t c)
-{
-	return write(component, addr, sizeof(uint8_t), &c);
-}
-
-static inline stat read_u8(struct component *component, uintptr_t addr,
-                           uint8_t *c)
-{
-	return read(component, addr, sizeof(uint8_t), c);
-}
-
-static inline stat swap_u8(struct component *component, uintptr_t addr,
-                           uint8_t *c)
-{
-	return swap(component, addr, sizeof(uint8_t), c, sizeof(uint8_t), c);
 }
 
 #endif /* GRAN_COMPONENT_H */

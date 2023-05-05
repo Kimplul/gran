@@ -11,6 +11,9 @@
 struct traffic_gen {
 	struct component component;
 	struct component *stress;
+
+	struct packet *pkt;
+
 	uintptr_t addr;
 	uintptr_t end;
 
@@ -23,16 +26,39 @@ static stat traffic_gen_clock(struct traffic_gen *tg)
 		return DONE;
 
 	uint8_t c = 0;
+	if (tg->pkt) {
+		assert(packet_state(tg->pkt) != PACKET_FAILED);
+		/* wait for packet */
+		if (packet_state(tg->pkt) != PACKET_DONE)
+			return OK;
+	}
+
 	switch (tg->counter) {
 	case 0:
-		assert(write_u8(tg->stress, tg->addr, 13) == OK);
-		tg->counter = 1;
+		c = 13;
+		tg->pkt = create_packet(PACKET_WRITE, tg->addr, sizeof(c));
+		*(uint8_t *)packet_data(tg->pkt) = c;
+		assert(write(tg->stress, tg->pkt) == OK);
+		tg->counter++;
 		break;
 
 	case 1:
-		c = 0;
-		assert(read_u8(tg->stress, tg->addr, &c) == OK);
-		assert(c == 13);
+		/* destroy write packet now that the write is done */
+		destroy_packet(tg->pkt);
+		tg->pkt = NULL;
+		tg->counter++;
+		break;
+
+	case 2:
+		tg->pkt = create_packet(PACKET_READ, tg->addr, sizeof(c));
+		assert(read(tg->stress, tg->pkt) == OK);
+		tg->counter++;
+		break;
+
+	case 3:
+		c = *(uint8_t *)packet_data(tg->pkt);
+		destroy_packet(tg->pkt);
+		tg->pkt = NULL;
 		tg->counter = 0;
 		tg->addr++;
 		break;
@@ -43,6 +69,9 @@ static stat traffic_gen_clock(struct traffic_gen *tg)
 
 void traffic_gen_destroy(struct traffic_gen *tg)
 {
+	if (tg->pkt)
+		destroy_packet(tg->pkt);
+
 	destroy(tg->stress);
 	free(tg);
 }
