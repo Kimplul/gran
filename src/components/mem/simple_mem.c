@@ -50,7 +50,8 @@ struct component *create_simple_mem(size_t size)
 	return (struct component *)new;
 }
 
-void init_simple_mem(struct component *m, uintptr_t addr, size_t size, void *data)
+void init_simple_mem(struct component *m, uintptr_t addr, size_t size,
+                     void *data)
 {
 	struct simple_mem *mem = (struct simple_mem *)m;
 	memcpy(mem->buf + addr, data, size);

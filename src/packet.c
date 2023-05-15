@@ -25,7 +25,8 @@ struct packet *create_packet(enum packet_type type, uintptr_t addr, size_t size)
 	return pkt;
 }
 
-struct packet *create_packet_with(enum packet_type type, uintptr_t addr, size_t size, void *data)
+struct packet *create_packet_with(enum packet_type type, uintptr_t addr,
+                                  size_t size, void *data)
 {
 	struct packet *pkt = calloc(1, sizeof(struct packet));
 	if (!pkt)

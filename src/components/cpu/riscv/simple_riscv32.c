@@ -482,7 +482,8 @@ static stat simple_riscv32_clock(struct simple_riscv32 *cpu)
 	}
 
 	if (!cpu->ils.pkt) {
-		cpu->ils.pkt = create_packet(PACKET_READ, cpu->pc, sizeof(uint32_t));
+		cpu->ils.pkt =
+			create_packet(PACKET_READ, cpu->pc, sizeof(uint32_t));
 		if (!cpu->ils.pkt)
 			return EMEM;
 
