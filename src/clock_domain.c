@@ -1,6 +1,12 @@
 /* SPDX-License-Identifier: copyleft-next-0.3.1 */
 /* Copyright 2023 Kim Kuparinen < kimi.h.kuparinen@gmail.com > */
 
+/**
+ * @file clock_domain.c
+ *
+ * Clock domain implementation stuff.
+ */
+
 #include <stdlib.h>
 #include <threads.h>
 #include <assert.h>

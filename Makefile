@@ -46,7 +46,8 @@ license:
 
 .PHONY: docs
 docs:
-	./scripts/warn-undocumented
+	find src include -iname '*.[ch]' |\
+		xargs -n 10 -P 0 ./scripts/warn-undocumented
 	doxygen docs/doxygen.conf
 
 .PHONY: check
