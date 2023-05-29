@@ -33,7 +33,7 @@ size_t snoop_size(struct snoop *snoop)
 	return snoop->size;
 }
 
-destroy_snoop(struct snoop *snoop)
+void destroy_snoop(struct snoop *snoop)
 {
 	free(snoop);
 }
