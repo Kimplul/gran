@@ -12,12 +12,10 @@
 #include <assert.h>
 
 #include <gran/clock_domain.h>
-
-#define MAX_COMPONENTS 512
+#include <gran/vec.h>
 
 struct clock_domain {
-	size_t num_components;
-	struct component *components[MAX_COMPONENTS];
+	struct vec components;
 	struct clock_time time;
 	tick period;
 
@@ -44,21 +42,23 @@ struct clock_domain *create_clock_domain(tick period)
 
 	clk->period = period;
 	mtx_init(&clk->mtx, mtx_plain);
+	clk->components = vec_create(sizeof(struct component *));
 
 	return clk;
 }
 
 void destroy_clock_domain(struct clock_domain *clk)
 {
-	for (size_t i = 0; i < clk->num_components; ++i)
-		destroy(clk->components[i]);
+	for (size_t i = 0; i < vec_len(&clk->components); ++i)
+		destroy(vect_at(struct component *, clk->components, i));
 
+	vec_destroy(&clk->components);
 	free(clk);
 }
 
 stat clock_domain_add(struct clock_domain *clk, struct component *component)
 {
-	clk->components[clk->num_components++] = component;
+	vect_append(struct component *, clk->components, &component);
 	return OK;
 }
 
@@ -80,17 +80,10 @@ static void clocked_component_tick(struct clock_domain *clk,
 
 stat clock_domain_tick(struct clock_domain *clk)
 {
-	/* openmp on gcc apparently doesn't really handle if conditionals
-	 * particularly efficiently, so it's faster to do it manually */
-	if (clk->num_components == 1) {
-		clocked_component_tick(clk, clk->components[0]);
-		advance_clock(clk);
-		return clk->ret;
+	for (size_t i = 0; i < vec_len(&clk->components); ++i) {
+		clocked_component_tick(clk,
+				vect_at(struct component *, clk->components, i));
 	}
-
-#pragma omp parallel for
-	for (size_t i = 0; i < clk->num_components; ++i)
-		clocked_component_tick(clk, clk->components[i]);
 
 	advance_clock(clk);
 	return clk->ret;

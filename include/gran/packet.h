@@ -39,7 +39,7 @@ enum packet_state packet_state(struct packet *pkt);
 void packet_set_state(struct packet *pkt, enum packet_state state);
 
 size_t packet_size(struct packet *pkt);
-uintptr_t packet_addr(struct packet *pkt);
+uint64_t packet_addr(struct packet *pkt);
 void *packet_data(struct packet *pkt);
 
 void destroy_packet(struct packet *pkt);

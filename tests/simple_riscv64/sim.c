@@ -5,7 +5,7 @@
 
 #include <gran/root.h>
 #include <gran/mem/simple_mem.h>
-#include <gran/cpu/riscv/simple_riscv32.h>
+#include <gran/cpu/riscv/simple_riscv64.h>
 
 unsigned char simple_sum[] = {
 	0x13, 0x05, 0x00, 0x00, 0xb7, 0x45, 0x0f, 0x00, 0x93, 0x85, 0x05, 0x24,
@@ -24,10 +24,10 @@ int main()
 	init_simple_mem(imem, 0, simple_sum_len, simple_sum);
 
 	struct component *dmem = create_simple_mem(size);
-	struct component *rv32 = create_simple_riscv32(0, imem, dmem);
+	struct component *rv64 = create_simple_riscv64(0, imem, dmem);
 
 	struct clock_domain *clk = create_clock_domain(NS(1));
-	clock_domain_add(clk, rv32);
+	clock_domain_add(clk, rv64);
 
 	struct gran_root *root = create_root();
 	root_add_clock(root, clk);

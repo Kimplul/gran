@@ -2,30 +2,31 @@
 /* Copyright 2023 Kim Kuparinen < kimi.h.kuparinen@gmail.com > */
 
 #include <byteswap.h>
+#include <string.h>
 #include <assert.h>
 #include <stdbool.h>
 #include <stdint.h>
 
-#include <gran/cpu/riscv/simple_riscv32.h>
+#include <gran/cpu/riscv/simple_riscv64.h>
 
-struct simple_rv32_ldst {
+struct simple_rv64_ldst {
 	struct packet *pkt;
 	uint32_t reg;
 	bool u;
 };
 
-struct simple_riscv32 {
+struct simple_riscv64 {
 	struct component component;
 
 	struct component *imem;
 	struct component *dmem;
 
-	struct simple_rv32_ldst dls;
-	struct simple_rv32_ldst ils;
+	struct simple_rv64_ldst dls;
+	struct simple_rv64_ldst ils;
 
 	/* have to be careful with x0 */
-	uint32_t regs[32];
-	uint32_t pc;
+	uint64_t regs[32];
+	uint64_t pc;
 };
 
 /* big endian format, going from smallest to highest address.
@@ -119,7 +120,7 @@ union rv_insn {
 	uint32_t val;
 };
 
-static uint32_t get_reg(struct simple_riscv32 *cpu, size_t i)
+static uint64_t get_reg(struct simple_riscv64 *cpu, size_t i)
 {
 	assert(i < 32);
 
@@ -129,7 +130,7 @@ static uint32_t get_reg(struct simple_riscv32 *cpu, size_t i)
 	return cpu->regs[i];
 }
 
-static void set_reg(struct simple_riscv32 *cpu, size_t i, uint32_t v)
+static void set_reg(struct simple_riscv64 *cpu, size_t i, uint64_t v)
 {
 	assert(i < 32);
 
@@ -143,18 +144,18 @@ static void set_reg(struct simple_riscv32 *cpu, size_t i, uint32_t v)
 #define EXTEND_IMM20(x) ((int32_t)((x) << 12) >> 12)
 #define SHAMT(x) ((x) & 0b11111)
 
-static stat op_imm(struct simple_riscv32 *cpu, union rv_insn insn)
+static stat op_imm(struct simple_riscv64 *cpu, union rv_insn insn)
 {
-	uint32_t dst = 0;
-	uint32_t src = get_reg(cpu, insn.itype.rs1);
+	uint64_t dst = 0;
+	uint64_t src = get_reg(cpu, insn.itype.rs1);
 
-	uint32_t imm = EXTEND_IMM12(insn.itype.imm);
+	uint64_t imm = EXTEND_IMM12(insn.itype.imm);
 
 	switch (insn.rtype.funct3) {
 	/* ADDI  */
 	case 0b000: dst = src + imm; break;
 	/* SLTI  */
-	case 0b010: dst = (int32_t)src < (int32_t)imm; break;
+	case 0b010: dst = (int64_t)src < (int64_t)imm; break;
 	/* SLTIU */
 	case 0b011: dst = src < imm; break;
 	/* ANDI  */
@@ -171,7 +172,7 @@ static stat op_imm(struct simple_riscv32 *cpu, union rv_insn insn)
 		if (imm & ~0b11111)     /* SRLI */
 			dst = src >> SHAMT(imm);
 		else     /* SRAI */
-			dst = (int32_t)src >> SHAMT(imm);
+			dst = (int64_t)src >> SHAMT(imm);
 		break;
 
 	default:
@@ -184,26 +185,67 @@ static stat op_imm(struct simple_riscv32 *cpu, union rv_insn insn)
 	return OK;
 }
 
-static stat lui(struct simple_riscv32 *cpu, union rv_insn insn)
+static stat op_imm_32(struct simple_riscv64 *cpu, union rv_insn insn)
+{
+	uint64_t dst = 0;
+	uint64_t src = get_reg(cpu, insn.itype.rs1);
+
+	uint64_t imm = EXTEND_IMM12(insn.itype.imm);
+
+	switch (insn.rtype.funct3) {
+	/* ADDIW  */
+	case 0b000: dst = src + imm; break;
+	/* SLTI  */
+	case 0b010: dst = (int64_t)src < (int64_t)imm; break;
+	/* SLTIU */
+	case 0b011: dst = src < imm; break;
+	/* ANDI  */
+	case 0b111: dst = src & imm; break;
+	/* ORI   */
+	case 0b110: dst = src | imm; break;
+	/* XORI  */
+	case 0b100: dst = src ^ imm; break;
+	/* SLLIW  */
+	case 0b001: dst = src << SHAMT(imm); break;
+
+	/* SRLIW / SRAIW */
+	case 0b101:
+		if (imm & ~0b11111)     /* SRLI */
+			dst = src >> SHAMT(imm);
+		else     /* SRAI */
+			dst = (int64_t)src >> SHAMT(imm);
+		break;
+
+	default:
+		error("unknown OP-IMM instruction: %x", insn.itype.funct3);
+		return ENOSUCH;
+	}
+
+	set_reg(cpu, insn.itype.rd, dst);
+	cpu->pc += 4;
+	return OK;
+}
+
+static stat lui(struct simple_riscv64 *cpu, union rv_insn insn)
 {
 	set_reg(cpu, insn.utype.rd, insn.utype.imm << 12);
 	cpu->pc += 4;
 	return OK;
 }
 
-static stat auipc(struct simple_riscv32 *cpu, union rv_insn insn)
+static stat auipc(struct simple_riscv64 *cpu, union rv_insn insn)
 {
-	uint32_t res = cpu->pc + (insn.utype.imm << 12);
+	uint64_t res = cpu->pc + (insn.utype.imm << 12);
 	set_reg(cpu, insn.utype.rd, res);
 	cpu->pc += 4;
 	return OK;
 }
 
-static stat op(struct simple_riscv32 *cpu, union rv_insn insn)
+static stat op(struct simple_riscv64 *cpu, union rv_insn insn)
 {
-	uint32_t dst = 0;
-	uint32_t src1 = get_reg(cpu, insn.rtype.rs1);
-	uint32_t src2 = get_reg(cpu, insn.rtype.rs2);
+	uint64_t dst = 0;
+	uint64_t src1 = get_reg(cpu, insn.rtype.rs1);
+	uint64_t src2 = get_reg(cpu, insn.rtype.rs2);
 
 	switch (insn.rtype.funct3) {
 	/* ADD/SUB */
@@ -215,7 +257,7 @@ static stat op(struct simple_riscv32 *cpu, union rv_insn insn)
 		break;
 
 	/* SLT */
-	case 0b010: dst = (int32_t)src1 < (int32_t)src2; break;
+	case 0b010: dst = (int64_t)src1 < (int64_t)src2; break;
 	/* SLTU */
 	case 0b011: dst = src1 < src2; break;
 	/* AND */
@@ -231,7 +273,7 @@ static stat op(struct simple_riscv32 *cpu, union rv_insn insn)
 		if (insn.rtype.funct7)     /* SRL */
 			dst = src1 >> src2;
 		else     /* SRA */
-			dst = (int32_t)src1 >> src2;
+			dst = (int64_t)src1 >> src2;
 		break;
 
 	default:
@@ -250,18 +292,18 @@ static stat op(struct simple_riscv32 *cpu, union rv_insn insn)
 	             | (insn.jtype.imm1 << 11) \
 	             | (insn.jtype.imm0 << 12))
 
-static stat jal(struct simple_riscv32 *cpu, union rv_insn insn)
+static stat jal(struct simple_riscv64 *cpu, union rv_insn insn)
 {
 	/** @todo generate exception on unaligned jumps */
-	int32_t imm = JTYPE_IMM(insn);
+	int64_t imm = JTYPE_IMM(insn);
 	set_reg(cpu, insn.jtype.rd, cpu->pc + 4);
 	cpu->pc += imm;
 	return OK;
 }
 
-static stat jalr(struct simple_riscv32 *cpu, union rv_insn insn)
+static stat jalr(struct simple_riscv64 *cpu, union rv_insn insn)
 {
-	int32_t src = get_reg(cpu, insn.itype.rs1);
+	int64_t src = get_reg(cpu, insn.itype.rs1);
 	set_reg(cpu, insn.itype.rd, cpu->pc + 4);
 	cpu->pc += src + EXTEND_IMM12(insn.itype.imm);
 	return OK;
@@ -273,11 +315,11 @@ static stat jalr(struct simple_riscv32 *cpu, union rv_insn insn)
 	             | (insn.btype.imm1 << 1) \
 	             | (insn.btype.imm0 << 11))
 
-static stat branch(struct simple_riscv32 *cpu, union rv_insn insn)
+static stat branch(struct simple_riscv64 *cpu, union rv_insn insn)
 {
-	uint32_t src1 = get_reg(cpu, insn.btype.rs1);
-	uint32_t src2 = get_reg(cpu, insn.btype.rs2);
-	int32_t offset = BTYPE_IMM(insn);
+	uint64_t src1 = get_reg(cpu, insn.btype.rs1);
+	uint64_t src2 = get_reg(cpu, insn.btype.rs2);
+	int64_t offset = BTYPE_IMM(insn);
 
 	switch (insn.btype.funct3) {
 	/* BEQ */
@@ -298,7 +340,7 @@ static stat branch(struct simple_riscv32 *cpu, union rv_insn insn)
 
 	/* BLT */
 	case 0b100:
-		if ((int32_t)src1 < (int32_t)src2) {
+		if ((int64_t)src1 < (int64_t)src2) {
 			cpu->pc += offset;
 			return OK;
 		}
@@ -314,7 +356,7 @@ static stat branch(struct simple_riscv32 *cpu, union rv_insn insn)
 
 	/* BGE */
 	case 0b101:
-		if ((int32_t)src1 >= (int32_t)src2) {
+		if ((int64_t)src1 >= (int64_t)src2) {
 			cpu->pc += offset;
 			return OK;
 		}
@@ -337,13 +379,13 @@ static stat branch(struct simple_riscv32 *cpu, union rv_insn insn)
 	return OK;
 }
 
-static stat load(struct simple_riscv32 *cpu, union rv_insn insn)
+static stat load(struct simple_riscv64 *cpu, union rv_insn insn)
 {
-	int32_t imm = EXTEND_IMM12(insn.itype.imm);
-	int32_t base = get_reg(cpu, insn.itype.rs1);
+	int64_t imm = EXTEND_IMM12(insn.itype.imm);
+	int64_t base = get_reg(cpu, insn.itype.rs1);
 
-	size_t addr = base + imm;
-	size_t size = 0;
+	int64_t addr = base + imm;
+	int64_t size = 0;
 	bool u = false;
 
 	// assume little endian for now
@@ -356,6 +398,7 @@ static stat load(struct simple_riscv32 *cpu, union rv_insn insn)
 	case 0b001: size = 2; break;
 	/* LW */
 	case 0b010: size = 4; break;
+	case 0b011: size = 8; break;
 	default:
 		error("unknown LOAD width %x", insn.btype.funct3);
 		return ENOSUCH;
@@ -365,7 +408,7 @@ static stat load(struct simple_riscv32 *cpu, union rv_insn insn)
 	if (!pkt)
 		return EMEM;
 
-	cpu->dls = (struct simple_rv32_ldst){pkt, insn.itype.rd, u};
+	cpu->dls = (struct simple_rv64_ldst){pkt, insn.itype.rd, u};
 	stat ret = read(cpu->dmem, pkt);
 	if (ret)
 		return ret;
@@ -378,13 +421,13 @@ static stat load(struct simple_riscv32 *cpu, union rv_insn insn)
 	EXTEND_IMM12((insn.stype.imm1 << 5) \
 	             | (insn.stype.imm0))
 
-static stat store(struct simple_riscv32 *cpu, union rv_insn insn)
+static stat store(struct simple_riscv64 *cpu, union rv_insn insn)
 {
-	int32_t imm = STYPE_IMM(insn);
-	int32_t base = get_reg(cpu, insn.stype.rs1);
-	size_t addr = base + imm;
+	int64_t imm = STYPE_IMM(insn);
+	int64_t base = get_reg(cpu, insn.stype.rs1);
+	int64_t addr = base + imm;
 
-	uint32_t src = get_reg(cpu, insn.stype.rs2);
+	uint64_t src = get_reg(cpu, insn.stype.rs2);
 
 	switch (insn.stype.funct3) {
 	/* SB */
@@ -405,6 +448,12 @@ static stat store(struct simple_riscv32 *cpu, union rv_insn insn)
 		*(uint32_t *)packet_data(cpu->dls.pkt) = src;
 		break;
 	}
+	/* SD */
+	case 0b011: {
+		cpu->dls.pkt = create_packet(PACKET_WRITE, addr, 8);
+		*(uint64_t *)packet_data(cpu->dls.pkt) = src;
+		break;
+	}
 	default:
 		error("unknown width of STORE %x", insn.stype.funct3);
 		return ENOSUCH;
@@ -414,11 +463,11 @@ static stat store(struct simple_riscv32 *cpu, union rv_insn insn)
 	return write(cpu->dmem, cpu->dls.pkt);
 }
 
-static void finalize_ld(struct simple_riscv32 *cpu)
+static void finalize_ld(struct simple_riscv64 *cpu)
 {
-	struct simple_rv32_ldst ld = cpu->dls;
+	struct simple_rv64_ldst ld = cpu->dls;
 
-	uint32_t val = 0;
+	uint64_t val = 0;
 	void *data = packet_data(ld.pkt);
 	switch (packet_size(ld.pkt)) {
 	case 1:
@@ -430,7 +479,11 @@ static void finalize_ld(struct simple_riscv32 *cpu)
 		else val = *(int16_t *)data;
 		break;
 
-	case 4: val = *(uint32_t *)data;
+	case 4: if (ld.u) val = *(uint32_t *)data;
+		else val = *(int32_t *)data;
+		break;
+
+	case 8: val = *(uint64_t *)data;
 		break;
 
 	default:
@@ -440,13 +493,13 @@ static void finalize_ld(struct simple_riscv32 *cpu)
 	set_reg(cpu, ld.reg, val);
 }
 
-static void finalize_st(struct simple_riscv32 *cpu)
+static void finalize_st(struct simple_riscv64 *cpu)
 {
 	(void)cpu;
 	/* nothing really to do, this is here mostly for vibe */
 }
 
-static void finalize_dls(struct simple_riscv32 *cpu)
+static void finalize_dls(struct simple_riscv64 *cpu)
 {
 	struct packet *pkt = cpu->dls.pkt;
 
@@ -455,13 +508,13 @@ static void finalize_dls(struct simple_riscv32 *cpu)
 	else if (packet_type(pkt) == PACKET_WRITE)
 		finalize_st(cpu);
 	else
-		error("unsupported packet type for simple_riscv32");
+		error("unsupported packet type for simple_riscv64");
 
 	destroy_packet(pkt);
 	cpu->dls.pkt = NULL;
 }
 
-static uint32_t finalize_ils(struct simple_riscv32 *cpu)
+static uint32_t finalize_ils(struct simple_riscv64 *cpu)
 {
 	uint32_t insn = *(uint32_t *)packet_data(cpu->ils.pkt);
 	destroy_packet(cpu->ils.pkt);
@@ -469,7 +522,7 @@ static uint32_t finalize_ils(struct simple_riscv32 *cpu)
 	return insn;
 }
 
-static stat simple_riscv32_clock(struct simple_riscv32 *cpu)
+static stat simple_riscv64_clock(struct simple_riscv64 *cpu)
 {
 	/* there's an active data transfer we should handle */
 	if (cpu->dls.pkt) {
@@ -509,6 +562,7 @@ static stat simple_riscv32_clock(struct simple_riscv32 *cpu)
 	// all formats have identical opcodes, use whatever
 	switch (i.rtype.op) {
 	case OP_IMM: ret = op_imm(cpu, i); break;
+	case OP_IMM_32: ret = op_imm_32(cpu, i); break;
 	case LUI: ret = lui(cpu, i); break;
 	case AUIPC: ret = auipc(cpu, i); break;
 	case OP: ret = op(cpu, i); break;
@@ -530,7 +584,7 @@ static stat simple_riscv32_clock(struct simple_riscv32 *cpu)
 	return ret;
 }
 
-static void simple_riscv32_destroy(struct simple_riscv32 *cpu)
+static void simple_riscv64_destroy(struct simple_riscv64 *cpu)
 {
 	/* oh yeah, will have to think about the name stuff,
 	 * i.e. how and where to free it, and where to assign it */
@@ -548,19 +602,25 @@ static void simple_riscv32_destroy(struct simple_riscv32 *cpu)
 	free(cpu);
 }
 
-struct component *create_simple_riscv32(uint32_t start_pc,
+struct component *create_simple_riscv64(uint32_t start_pc,
                                         struct component *imem,
                                         struct component *dmem)
 {
-	struct simple_riscv32 *new = calloc(1, sizeof(struct simple_riscv32));
+	struct simple_riscv64 *new = calloc(1, sizeof(struct simple_riscv64));
 	if (!new)
 		return NULL;
 
-	new->component.clock = (clock_callback)simple_riscv32_clock;
-	new->component.destroy = (destroy_callback)simple_riscv32_destroy;
+	new->component.clock = (clock_callback)simple_riscv64_clock;
+	new->component.destroy = (destroy_callback)simple_riscv64_destroy;
 
 	new->pc = start_pc;
 	new->imem = imem;
 	new->dmem = dmem;
 	return (struct component *)new;
+}
+
+void simple_riscv64_set_reg(struct component *cpu, size_t reg, uint64_t val)
+{
+	struct simple_riscv64 *rv64 = (struct simple_riscv64 *)cpu;
+	set_reg(rv64, reg, val);
 }

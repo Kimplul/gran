@@ -172,7 +172,7 @@ struct component *create_simple_bus()
 }
 
 stat simple_bus_add(struct component *bus, struct component *component,
-                    uintptr_t addr, size_t size)
+                    uint64_t addr, uint64_t size)
 {
 	struct mem_region *new = calloc(1, sizeof(struct mem_region));
 	if (!new)
