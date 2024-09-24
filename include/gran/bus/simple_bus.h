@@ -4,7 +4,7 @@
 #ifndef GRAN_SIMPLE_BUS_H
 #define GRAN_SIMPLE_BUS_H
 
-#include <stdint.h>
+#include <gran/component.h>
 
 struct component *create_simple_bus();
 stat simple_bus_add(struct component *bus, struct component *component,

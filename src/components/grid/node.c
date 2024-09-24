@@ -5,73 +5,101 @@
  * Each node should have a router beneath it, just to simplify my life. A router
  * is basically a bus with a fallback ascension path.
  */
+#include <stdbool.h>
+
 #include <gran/grid/node.h>
 
 struct grid_node {
 	struct component component;
 	uint8_t u, v, x, y;
 	struct component *left, *right, *up, *down, *ascend, *lower;
+
+	struct component *send;
+	struct packet pkt;
+	bool busy;
 };
 
-typedef read_callback callback;
-
-static stat grid_route(struct grid_node *grid, struct packet *pkt, callback op)
+static stat grid_clock(struct grid_node *grid)
 {
-	uint64_t addr = packet_addr(pkt);
-	uint8_t u = (addr >> 56) & 0xff;
-	uint8_t v = (addr >> 48) & 0xff;
-	uint8_t x = (addr >> 40) & 0xff;
-	uint8_t y = (addr >> 32) & 0xff;
+	if (!grid->busy)
+		return OK;
 
-	if (grid->u == u && grid->v == v && grid->x == x && grid->y == y)
-		return op(grid->lower, pkt);
+	stat r = SEND(grid, grid->send, grid->pkt);
+	if (r == EBUSY)
+		return OK;
+
+	grid->busy = false;
+	return r;
+}
+
+static stat grid_receive(struct grid_node *grid, struct component *from, struct packet pkt)
+{
+	if (grid->busy)
+		return EBUSY;
+
+	uint8_t u;
+	uint8_t v;
+	uint8_t x;
+	uint8_t y;
+	uint64_t addr = pkt.to;
+	addr_grid(addr, NULL, &x, &y, &u, &v);
+
+	grid->busy = true;
+	grid->pkt = pkt;
+
+	if (grid->u == u && grid->v == v && grid->x == x && grid->y == y) {
+		if (!grid->lower)
+			goto nosuch;
+
+		grid->send = grid->lower;
+		return OK;
+	}
 
 	if (grid->u != u || grid->v != v) {
 		if (!grid->ascend)
-			return EBUS;
+			goto nosuch;
 
-		return op(grid->ascend, pkt);
+		grid->send = grid->ascend;
+		return OK;
 	}
 
 	if (y < grid->y) {
 		if (!grid->down)
-			return EBUS;
+			goto nosuch;
 
-		return op(grid->down, pkt);
+		grid->send = grid->down;
+		return OK;
 	}
 
 	if (y > grid->y) {
 		if (!grid->up)
-			return EBUS;
+			goto nosuch;
 
-		return op(grid->up, pkt);
+		grid->send = grid->up;
+		return OK;
 	}
 
 	if (x < grid->x) {
 		if (!grid->left)
-			return EBUS;
+			goto nosuch;
 
-		return op(grid->left, pkt);
+		grid->send = grid->left;
+		return OK;
 	}
 
 	if (x > grid->x) {
 		if (!grid->right)
 			return EBUS;
 
-		return op(grid->right, pkt);
+		grid->send = grid->right;
+		return OK;
 	}
 
-	return EBUS;
-}
-
-static stat grid_write(struct grid_node *node, struct packet *pkt)
-{
-	return grid_route(node, pkt, write);
-}
-
-static stat grid_read(struct grid_node *node, struct packet *pkt)
-{
-	return grid_route(node, pkt, read);
+nosuch:
+	grid->send = from;
+	grid->pkt = response(pkt);
+	set_flags(&grid->pkt, PACKET_ERROR);
+	return OK;
 }
 
 struct component *create_grid_node(uint8_t u, uint8_t v, uint8_t x, uint8_t y)
@@ -80,13 +108,12 @@ struct component *create_grid_node(uint8_t u, uint8_t v, uint8_t x, uint8_t y)
 	if (!node)
 		return NULL;
 
+	node->component.receive = (receive_callback)grid_receive;
+	node->component.clock = (clock_callback)grid_clock;
 	node->u = u;
 	node->v = v;
 	node->x = x;
 	node->y = y;
-	node->component.write = (write_callback)grid_write;
-	node->component.read = (read_callback)grid_read;
-
 	return (struct component *)node;
 }
 

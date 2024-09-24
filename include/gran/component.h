@@ -12,36 +12,20 @@
 
 #include <gran/common.h>
 #include <gran/packet.h>
-#include <gran/snoop.h>
 
 struct component;
 
-typedef stat (*read_callback)(struct component *, struct packet *pkt);
-typedef stat (*write_callback)(struct component *, struct packet *pkt);
-typedef stat (*swap_callback)(struct component *, struct packet *pkt);
-
-typedef stat (*snoop_callback)(struct component *, struct snoop *snoop);
-typedef stat (*ctrl_callback)(struct component *, struct packet *pkt);
-
-typedef stat (*irq_callback)(struct component *, int);
+typedef stat (*receive_callback)(struct component *to, struct component *from, struct packet pkt);
 typedef stat (*clock_callback)(struct component *);
 typedef stat (*stat_callback)(struct component *, FILE *);
 typedef stat (*dts_callback)(struct component *, FILE *);
-
 typedef void (*destroy_callback)(struct component *);
 
 struct component {
 	/* optional */
 	char *name;
 
-	read_callback read;
-	write_callback write;
-	swap_callback swap;
-
-	snoop_callback snoop;
-	ctrl_callback ctrl;
-
-	irq_callback irq;
+	receive_callback receive;
 	clock_callback clock;
 
 	dts_callback dts;
@@ -50,48 +34,20 @@ struct component {
 	destroy_callback destroy;
 };
 
-static inline stat write(struct component *component, struct packet *pkt)
+static inline stat send(struct component *from, struct component *to, struct packet pkt)
 {
-	assert(packet_type(pkt) == PACKET_WRITE);
-	if (!component->write) {
+	if (!to->receive) {
 		/* printf formatted asserts would maybe be preferable? */
 		error(
-			"tried writing %p:%" PRIuPTR " but it doesn't support writing",
-			component->name, packet_addr(pkt));
+			"%s:%lx tried sending to %s:%lx",
+			from->name, pkt.from,
+			to->name, pkt.to);
 		return ENOSUCH;
 	}
 
-	packet_set_state(pkt, PACKET_SENT);
-	return component->write(component, pkt);
+	return to->receive(to, from, pkt);
 }
-
-static inline stat read(struct component *component, struct packet *pkt)
-{
-	assert(packet_type(pkt) == PACKET_READ);
-	if (!component->read) {
-		error(
-			"tried reading %p:%" PRIuPTR " but it doesn't support reading",
-			component->name, packet_addr(pkt));
-		return ENOSUCH;
-	}
-
-	packet_set_state(pkt, PACKET_SENT);
-	return component->read(component, pkt);
-}
-
-static inline stat swap(struct component *component, struct packet *pkt)
-{
-	assert(packet_type(pkt) == PACKET_SWAP);
-	if (!component->swap) {
-		error(
-			"tried swapping %p:%" PRIuPTR " but it doesn't support swapping",
-			component->name, packet_addr(pkt));
-		return ENOSUCH;
-	}
-
-	packet_set_state(pkt, PACKET_SENT);
-	return component->swap(component, pkt);
-}
+#define SEND(x, y, z) send((struct component *)(x), (struct component *)(y), z)
 
 static inline void destroy(struct component *component)
 {

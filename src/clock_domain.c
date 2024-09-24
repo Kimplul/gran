@@ -20,8 +20,6 @@ struct clock_domain {
 	tick period;
 
 	stat ret;
-
-	mtx_t mtx;
 };
 
 void advance_clock(struct clock_domain *clk)
@@ -41,7 +39,6 @@ struct clock_domain *create_clock_domain(tick period)
 		return NULL;
 
 	clk->period = period;
-	mtx_init(&clk->mtx, mtx_plain);
 	clk->components = vec_create(sizeof(struct component *));
 
 	return clk;
@@ -62,20 +59,12 @@ stat clock_domain_add(struct clock_domain *clk, struct component *component)
 	return OK;
 }
 
-static void update_ret(struct clock_domain *clk, stat ret)
-{
-	if (ret) {
-		mtx_lock(&clk->mtx);
-		clk->ret = ret;
-		mtx_unlock(&clk->mtx);
-	}
-}
-
 static void clocked_component_tick(struct clock_domain *clk,
                                    struct component *component)
 {
-	stat ret = component->clock(component);
-	update_ret(clk, ret);
+	stat r = component->clock(component);
+	if (r)
+		clk->ret = r;
 }
 
 stat clock_domain_tick(struct clock_domain *clk)

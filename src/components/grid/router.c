@@ -1,3 +1,6 @@
+#include <stdbool.h>
+
+#include <gran/grid/node.h>
 #include <gran/grid/router.h>
 #include <gran/vec.h>
 
@@ -12,6 +15,10 @@ struct node_router {
 	struct component *ascend;
 	struct vec regions;
 	uint8_t u, v, x, y;
+
+	struct component *send;
+	struct packet pkt;
+	bool busy;
 };
 
 static struct router_region *find_region(struct node_router *router, uint32_t addr)
@@ -26,40 +33,55 @@ static struct router_region *find_region(struct node_router *router, uint32_t ad
 	return NULL;
 }
 
-static stat router_write(struct node_router *router, struct packet *pkt)
+static stat router_clock(struct node_router *router)
 {
-	uint64_t addr = packet_addr(pkt);
-	uint8_t u = (addr >> 56) & 0xff;
-	uint8_t v = (addr >> 48) & 0xff;
-	uint8_t x = (addr >> 40) & 0xff;
-	uint8_t y = (addr >> 32) & 0xff;
+	if (!router->busy)
+		return OK;
 
-	if (router->u != u || router->v != v || router->x != x || router->y != y)
-		return write(router->ascend, pkt);
+	stat r = SEND(router, router->send, router->pkt);
+	if (r == EBUSY)
+		return OK;
 
-	struct router_region *region = find_region(router, addr);
-	if (!region)
-		return write(router->ascend, pkt);
-
-	return write(region->component, pkt);
+	router->busy = false;
+	return OK;
 }
 
-static stat router_read(struct node_router *router, struct packet *pkt)
+static stat router_receive(struct node_router *router, struct component *from, struct packet pkt)
 {
-	uint64_t addr = packet_addr(pkt);
-	uint8_t u = (addr >> 56) & 0xff;
-	uint8_t v = (addr >> 48) & 0xff;
-	uint8_t x = (addr >> 40) & 0xff;
-	uint8_t y = (addr >> 32) & 0xff;
+	if (router->busy)
+		return EBUSY;
 
-	if (router->u != u || router->v != v || router->x != x || router->y != y)
-		return read(router->ascend, pkt);
+	router->busy = true;
+
+	uint64_t addr = pkt.to;
+	uint8_t u;
+	uint8_t v;
+	uint8_t x;
+	uint8_t y;
+	addr_grid(addr, NULL, &x, &y, &u, &v);
+
+	router->pkt = pkt;
+
+	if (router->u != u || router->v != v || router->x != x || router->y != y) {
+		if (!router->ascend)
+			goto nosuch;
+
+		router->send = router->ascend;
+		return OK;
+	}
 
 	struct router_region *region = find_region(router, addr);
 	if (!region)
-		return read(router->ascend, pkt);
+		goto nosuch;
 
-	return read(region->component, pkt);
+	router->send = region->component;
+	return OK;
+
+nosuch:
+	router->send = from;
+	router->pkt = response(pkt);
+	set_flags(&router->pkt, PACKET_ERROR);
+	return OK;
 }
 
 struct component *create_node_router(uint8_t u, uint8_t v, uint8_t x, uint8_t y)
@@ -73,8 +95,8 @@ struct component *create_node_router(uint8_t u, uint8_t v, uint8_t x, uint8_t y)
 	router->x = x;
 	router->y = y;
 
-	router->component.write = (write_callback)router_write;
-	router->component.read = (read_callback)router_read;
+	router->component.receive = (receive_callback)router_receive;
+	router->component.clock = (clock_callback)router_clock;
 	router->regions = vec_create(sizeof(struct router_region));
 
 	return (struct component *)router;

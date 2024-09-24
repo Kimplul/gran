@@ -67,7 +67,8 @@ static stat build_grid(struct clock_domain *clk, uint8_t x, uint8_t y)
 		struct component *router = create_node_router(0, 0, i, j);
 		node_router_add(router, dmem, 4096, 4096);
 
-		struct component *rv64 = create_simple_riscv64(0, imem, router);
+		uint64_t rcv = grid_addr(0, 0, i, j, 16384);
+		struct component *rv64 = create_simple_riscv64(rcv, 0, imem, router);
 		simple_riscv64_set_reg(rv64, 10, i); /* a0 */
 		simple_riscv64_set_reg(rv64, 11, j); /* a1 */
 

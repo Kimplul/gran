@@ -9,8 +9,13 @@
 
 #include <gran/cpu/riscv/simple_riscv64.h>
 
-struct simple_rv64_ldst {
-	struct packet *pkt;
+enum ldst_state {
+	LDST_IDLE, LDST_BLOCKED, LDST_SENT, LDST_DONE
+};
+
+struct ldst {
+	struct packet pkt;
+	enum ldst_state state;
 	uint32_t reg;
 	bool u;
 };
@@ -21,8 +26,10 @@ struct simple_riscv64 {
 	struct component *imem;
 	struct component *dmem;
 
-	struct simple_rv64_ldst dls;
-	struct simple_rv64_ldst ils;
+	struct ldst dls;
+	struct ldst ils;
+
+	uint64_t rcv;
 
 	/* have to be careful with x0 */
 	uint64_t regs[32];
@@ -396,25 +403,31 @@ static stat load(struct simple_riscv64 *cpu, union rv_insn insn)
 	/* LH/LHU */
 	case 0b101: u = true; /* fallthrough */
 	case 0b001: size = 2; break;
-	/* LW */
+	/* LW/LWU */
+	case 0b110: u = true; /* fallthrough */
 	case 0b010: size = 4; break;
+	/* LD */
 	case 0b011: size = 8; break;
 	default:
 		error("unknown LOAD width %x", insn.btype.funct3);
 		return ENOSUCH;
 	}
 
-	struct packet *pkt = create_packet(PACKET_READ, addr, size);
-	if (!pkt)
-		return EMEM;
+	struct packet pkt = create_packet(cpu->rcv,
+			addr,
+			size,
+			NULL,
+			PACKET_READ);
 
-	cpu->dls = (struct simple_rv64_ldst){pkt, insn.itype.rd, u};
-	stat ret = read(cpu->dmem, pkt);
-	if (ret)
-		return ret;
+	cpu->dls = (struct ldst){pkt, LDST_SENT, insn.itype.rd, u};
+	stat ret = SEND(cpu, cpu->dmem, pkt);
+	if (ret == EBUSY) {
+		cpu->dls.state = LDST_BLOCKED;
+		ret = OK;
+	}
 
 	cpu->pc += 4;
-	return OK;
+	return ret;
 }
 
 #define STYPE_IMM(insn)                     \
@@ -428,66 +441,58 @@ static stat store(struct simple_riscv64 *cpu, union rv_insn insn)
 	int64_t addr = base + imm;
 
 	uint64_t src = get_reg(cpu, insn.stype.rs2);
+	uint64_t size = 0;
 
 	switch (insn.stype.funct3) {
 	/* SB */
-	case 0b000: {
-		cpu->dls.pkt = create_packet(PACKET_WRITE, addr, 1);
-		*(uint8_t *)packet_data(cpu->dls.pkt) = src;
-		break;
-	}
+	case 0b000: size = 1; break;
 	/* SH */
-	case 0b001: {
-		cpu->dls.pkt = create_packet(PACKET_WRITE, addr, 2);
-		*(uint16_t *)packet_data(cpu->dls.pkt) = src;
-		break;
-	}
+	case 0b001: size = 2; break;
 	/* SW */
-	case 0b010: {
-		cpu->dls.pkt = create_packet(PACKET_WRITE, addr, 4);
-		*(uint32_t *)packet_data(cpu->dls.pkt) = src;
-		break;
-	}
+	case 0b010: size = 4; break;
 	/* SD */
-	case 0b011: {
-		cpu->dls.pkt = create_packet(PACKET_WRITE, addr, 8);
-		*(uint64_t *)packet_data(cpu->dls.pkt) = src;
-		break;
-	}
+	case 0b011: size = 8; break;
 	default:
 		error("unknown width of STORE %x", insn.stype.funct3);
 		return ENOSUCH;
 	}
 
+	struct packet pkt = create_packet(cpu->rcv, addr, size, &src, PACKET_WRITE);
+	cpu->dls = (struct ldst){pkt, LDST_SENT, 0, false};
+	stat ret = SEND(cpu, cpu->dmem, pkt);
+	if (ret == EBUSY) {
+		cpu->dls.state = LDST_BLOCKED;
+		ret = OK;
+	}
+
 	cpu->pc += 4;
-	return write(cpu->dmem, cpu->dls.pkt);
+	return ret;
 }
 
 static void finalize_ld(struct simple_riscv64 *cpu)
 {
-	struct simple_rv64_ldst ld = cpu->dls;
+	struct ldst ld = cpu->dls;
 
 	uint64_t val = 0;
-	void *data = packet_data(ld.pkt);
-	switch (packet_size(ld.pkt)) {
+	switch (packet_convsize(&ld.pkt)) {
 	case 1:
-		if (ld.u) val = *(uint8_t *)data;
-		else val = *(int8_t *)data;
+		if (ld.u) val = packet_convu8(&ld.pkt);
+		else val = packet_convi8(&ld.pkt);
 		break;
 
-	case 2: if (ld.u) val = *(uint16_t *)data;
-		else val = *(int16_t *)data;
+	case 2: if (ld.u) val = packet_convu16(&ld.pkt);
+		else val = packet_convi16(&ld.pkt);
 		break;
 
-	case 4: if (ld.u) val = *(uint32_t *)data;
-		else val = *(int32_t *)data;
+	case 4: if (ld.u) val = packet_convi32(&ld.pkt);
+		else val = packet_convu32(&ld.pkt);
 		break;
 
-	case 8: val = *(uint64_t *)data;
+	case 8: val = packet_convu64(&ld.pkt);
 		break;
 
 	default:
-		error("unknown load size %zu", packet_size(ld.pkt));
+		error("unknown load size %zu", packet_convsize(&ld.pkt));
 	}
 
 	set_reg(cpu, ld.reg, val);
@@ -501,58 +506,97 @@ static void finalize_st(struct simple_riscv64 *cpu)
 
 static void finalize_dls(struct simple_riscv64 *cpu)
 {
-	struct packet *pkt = cpu->dls.pkt;
+	cpu->dls.state = LDST_IDLE;
+	struct packet pkt = cpu->dls.pkt;
 
-	if (packet_type(pkt) == PACKET_READ)
+	if (is_set(&pkt, PACKET_READ))
 		finalize_ld(cpu);
-	else if (packet_type(pkt) == PACKET_WRITE)
+	else if (is_set(&pkt, PACKET_WRITE))
 		finalize_st(cpu);
 	else
 		error("unsupported packet type for simple_riscv64");
-
-	destroy_packet(pkt);
-	cpu->dls.pkt = NULL;
 }
 
 static uint32_t finalize_ils(struct simple_riscv64 *cpu)
 {
-	uint32_t insn = *(uint32_t *)packet_data(cpu->ils.pkt);
-	destroy_packet(cpu->ils.pkt);
-	cpu->ils.pkt = NULL;
-	return insn;
+	cpu->ils.state = LDST_IDLE;
+	return packet_convu32(&cpu->ils.pkt);
+}
+
+static stat simple_riscv64_receive(struct simple_riscv64 *cpu, struct component *from, struct packet pkt)
+{
+	(void)from;
+
+	if (pkt.to == cpu->rcv) {
+		cpu->dls.pkt = pkt;
+		cpu->dls.state = LDST_DONE;
+		return OK;
+	}
+	else if (pkt.to == cpu->rcv + 64) {
+		cpu->ils.pkt = pkt;
+		cpu->ils.state = LDST_DONE;
+		return OK;
+	}
+	else {
+		error("illegal receive on %s", cpu->component.name);
+		return EBUS;
+	}
 }
 
 static stat simple_riscv64_clock(struct simple_riscv64 *cpu)
 {
 	/* there's an active data transfer we should handle */
-	if (cpu->dls.pkt) {
-		assert(packet_state(cpu->dls.pkt) != PACKET_FAILED);
+	if (cpu->dls.state != LDST_IDLE) {
+		assert(!is_set(&cpu->dls.pkt, PACKET_ERROR));
 
-		if (packet_state(cpu->dls.pkt) == PACKET_DONE)
+		if (cpu->dls.state == LDST_BLOCKED) {
+			stat r = SEND(cpu, cpu->dmem, cpu->dls.pkt);
+			if (r == EBUSY)
+				return OK;
+
+			cpu->dls.state = LDST_SENT;
+			return OK;
+		}
+
+		if (cpu->dls.state == LDST_SENT)
+			return OK;
+
+		if (cpu->dls.state == LDST_DONE) {
 			finalize_dls(cpu);
-		else /* wait for data */
+			cpu->dls.state = LDST_IDLE;
+		}
+		else
 			return OK;
 	}
 
-	if (!cpu->ils.pkt) {
-		cpu->ils.pkt =
-			create_packet(PACKET_READ, cpu->pc, sizeof(uint32_t));
-		if (!cpu->ils.pkt)
-			return EMEM;
+	if (cpu->ils.state == LDST_BLOCKED) {
+		stat ret = SEND(cpu, cpu->imem, cpu->ils.pkt);
+		if (ret == EBUSY)
+			return OK;
 
-		stat ret = read(cpu->imem, cpu->ils.pkt);
-		if (ret)
-			return ret;
+		return OK;
 	}
 
 	uint32_t insn = 0;
-	if (cpu->ils.pkt) {
-		assert(packet_state(cpu->ils.pkt) != PACKET_FAILED);
+	if (cpu->ils.state == LDST_DONE) {
+		assert(!is_set(&cpu->dls.pkt, PACKET_ERROR));
 
-		if (packet_state(cpu->ils.pkt) == PACKET_DONE)
-			insn = finalize_ils(cpu);
-		else /* wait for instruction */
-			return OK;
+		insn = finalize_ils(cpu);
+		cpu->ils.state = LDST_IDLE;
+	}
+
+	if (cpu->ils.state == LDST_IDLE) {
+		cpu->ils.pkt = create_packet(cpu->rcv + 64,
+						cpu->pc,
+						sizeof(uint32_t),
+						NULL,
+						PACKET_READ);
+		cpu->ils.state = LDST_SENT;
+		stat ret = SEND(cpu, cpu->imem, cpu->ils.pkt);
+		if (ret == EBUSY) {
+			cpu->ils.state = LDST_BLOCKED;
+			return ret;
+		}
 	}
 
 	// for now assume little endian emulated and host cpu
@@ -586,23 +630,12 @@ static stat simple_riscv64_clock(struct simple_riscv64 *cpu)
 
 static void simple_riscv64_destroy(struct simple_riscv64 *cpu)
 {
-	/* oh yeah, will have to think about the name stuff,
-	 * i.e. how and where to free it, and where to assign it */
 	destroy(cpu->imem);
-
-	if (cpu->imem != cpu->dmem)
-		destroy(cpu->dmem);
-
-	if (cpu->ils.pkt)
-		destroy_packet(cpu->ils.pkt);
-
-	if (cpu->dls.pkt)
-		destroy_packet(cpu->dls.pkt);
-
+	destroy(cpu->dmem);
 	free(cpu);
 }
 
-struct component *create_simple_riscv64(uint32_t start_pc,
+struct component *create_simple_riscv64(uint64_t rcv, uint32_t start_pc,
                                         struct component *imem,
                                         struct component *dmem)
 {
@@ -610,10 +643,12 @@ struct component *create_simple_riscv64(uint32_t start_pc,
 	if (!new)
 		return NULL;
 
+	new->component.receive = (receive_callback)simple_riscv64_receive;
 	new->component.clock = (clock_callback)simple_riscv64_clock;
 	new->component.destroy = (destroy_callback)simple_riscv64_destroy;
 
 	new->pc = start_pc;
+	new->rcv = rcv;
 	new->imem = imem;
 	new->dmem = dmem;
 	return (struct component *)new;

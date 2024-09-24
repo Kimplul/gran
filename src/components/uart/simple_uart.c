@@ -3,17 +3,42 @@
 
 struct simple_uart {
 	struct component component;
+
+	struct component *send;
+	struct packet pkt;
+	bool busy;
 };
 
-static stat simple_uart_write(struct simple_uart *uart, struct packet *pkt)
+static stat simple_uart_clock(struct simple_uart *uart)
 {
-	(void)uart;
-	size_t size = packet_size(pkt);
-	if (size != 1)
-		return EBUS;
+	if (!uart->busy)
+		return OK;
 
-	putchar(*(uint8_t *)packet_data(pkt));
-	packet_set_state(pkt, PACKET_DONE);
+	stat r = SEND(uart, uart->send, uart->pkt);
+	if (r == EBUSY)
+		return OK;
+
+	uart->busy = false;
+	return OK;
+}
+
+static stat simple_uart_receive(struct simple_uart *uart, struct component *from, struct packet pkt)
+{
+	if (uart->busy)
+		return EBUSY;
+
+	uart->busy = true;
+	uart->send = from;
+	uart->pkt = response(pkt);
+
+	size_t size = packet_convsize(&pkt);
+	if (size != 1) {
+		set_flags(&uart->pkt, PACKET_ERROR);
+		return OK;
+	}
+
+	putchar(packet_convu8(&pkt));
+	set_flags(&uart->pkt, PACKET_DONE);
 	return OK;
 }
 
@@ -23,6 +48,7 @@ struct component *create_simple_uart()
 	if (!uart)
 		return NULL;
 
-	uart->component.write = (write_callback)simple_uart_write;
+	uart->component.receive = (receive_callback)simple_uart_receive;
+	uart->component.clock = (clock_callback)simple_uart_clock;
 	return (struct component *)uart;
 }

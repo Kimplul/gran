@@ -12,13 +12,21 @@ struct traffic_gen {
 	struct component component;
 	struct component *stress;
 
-	struct packet *pkt;
+	struct packet pkt;
 
-	uintptr_t addr;
-	uintptr_t end;
+	uint64_t rcv;
+	uint64_t addr;
+	uint64_t end;
 
 	size_t counter;
 };
+
+static stat traffic_gen_receive(struct traffic_gen *tg, struct component *from, struct packet pkt)
+{
+	(void)from;
+	tg->pkt = pkt;
+	return OK;
+}
 
 static stat traffic_gen_clock(struct traffic_gen *tg)
 {
@@ -26,39 +34,39 @@ static stat traffic_gen_clock(struct traffic_gen *tg)
 		return DONE;
 
 	uint8_t c = 0;
-	if (tg->pkt) {
-		assert(packet_state(tg->pkt) != PACKET_FAILED);
-		/* wait for packet */
-		if (packet_state(tg->pkt) != PACKET_DONE)
-			return OK;
-	}
-
 	switch (tg->counter) {
 	case 0:
 		c = 13;
-		tg->pkt = create_packet(PACKET_WRITE, tg->addr, sizeof(c));
-		*(uint8_t *)packet_data(tg->pkt) = c;
-		assert(write(tg->stress, tg->pkt) == OK);
+		tg->pkt = create_packet(tg->rcv, tg->addr, sizeof(c), &c, PACKET_WRITE);
+		assert(SEND(tg, tg->stress, tg->pkt) == OK);
 		tg->counter++;
 		break;
 
 	case 1:
-		/* destroy write packet now that the write is done */
-		destroy_packet(tg->pkt);
-		tg->pkt = NULL;
+		/* wait for write to finish */
+		if (!is_set(&tg->pkt, PACKET_DONE))
+			break;
+
 		tg->counter++;
 		break;
 
 	case 2:
-		tg->pkt = create_packet(PACKET_READ, tg->addr, sizeof(c));
-		assert(read(tg->stress, tg->pkt) == OK);
+		tg->pkt = create_packet(0, tg->addr, sizeof(c), NULL, PACKET_READ);
+		assert(SEND(tg, tg->stress, tg->pkt) == OK);
 		tg->counter++;
 		break;
 
 	case 3:
-		c = *(uint8_t *)packet_data(tg->pkt);
-		destroy_packet(tg->pkt);
-		tg->pkt = NULL;
+		/* wait for read to finish */
+		if (!is_set(&tg->pkt, PACKET_DONE))
+			break;
+
+		tg->counter++;
+		break;
+
+	case 4:
+		c = packet_convu8(&tg->pkt);
+		assert(c == 13);
 		tg->counter = 0;
 		tg->addr++;
 		break;
@@ -67,17 +75,7 @@ static stat traffic_gen_clock(struct traffic_gen *tg)
 	return OK;
 }
 
-void traffic_gen_destroy(struct traffic_gen *tg)
-{
-	if (tg->pkt)
-		destroy_packet(tg->pkt);
-
-	destroy(tg->stress);
-	free(tg);
-}
-
-struct component *create_traffic_gen(struct component *stress, uintptr_t start,
-                                     size_t size)
+struct component *create_traffic_gen(struct component *stress, uintptr_t start, size_t size)
 {
 	struct traffic_gen *new = calloc(1, sizeof(struct traffic_gen));
 	if (!new)
@@ -88,7 +86,7 @@ struct component *create_traffic_gen(struct component *stress, uintptr_t start,
 	new->end = start + size;
 	new->counter = 0;
 
+	new->component.receive = (receive_callback)traffic_gen_receive;
 	new->component.clock = (clock_callback)traffic_gen_clock;
-	new->component.destroy = (destroy_callback)traffic_gen_destroy;
 	return (struct component *)new;
 }

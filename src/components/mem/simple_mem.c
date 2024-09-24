@@ -3,38 +3,57 @@
 
 #include <string.h>
 #include <stdlib.h>
+#include <stdbool.h>
 
 #include <gran/mem/simple_mem.h>
 
 struct simple_mem {
 	struct component component;
+	struct component *send;
+	struct packet pkt;
+	bool busy;
+
 	size_t size;
-	char buf[];
+	uint8_t buf[];
 };
 
-static stat simple_mem_write(struct simple_mem *mem, struct packet *pkt)
+static stat simple_mem_clock(struct simple_mem *mem)
 {
-	uintptr_t offset = packet_addr(pkt) % mem->size;
-	if (offset + packet_size(pkt) > mem->size) {
-		error("write outside memory");
-		return ESIZE;
-	}
+	if (mem->busy)
+		return OK;
 
-	memcpy(mem->buf + offset, packet_data(pkt), packet_size(pkt));
-	packet_set_state(pkt, PACKET_DONE);
+	stat r = SEND(mem, mem->send, mem->pkt);
+	if (r == EBUSY)
+		return OK;
+
+	mem->busy = false;
 	return OK;
 }
 
-static stat simple_mem_read(struct simple_mem *mem, struct packet *pkt)
+static stat simple_mem_receive(struct simple_mem *mem, struct component *from, struct packet pkt)
 {
-	uintptr_t offset = packet_addr(pkt) % mem->size;
-	if (offset + packet_size(pkt) > mem->size) {
+	if (mem->busy)
+		return EBUSY;
+
+	mem->send = from;
+
+	uint64_t offset = pkt.to % mem->size;
+	if (offset >= mem->size) {
 		error("read outside memory");
-		return ESIZE;
+		mem->pkt = response(pkt);
+		set_flags(&mem->pkt, PACKET_ERROR);
+		return OK;
 	}
 
-	memcpy(packet_data(pkt), mem->buf + offset, packet_size(pkt));
-	packet_set_state(pkt, PACKET_DONE);
+	if (is_set(&pkt, PACKET_READ))
+		checked_copyto(&pkt, mem->buf + offset);
+	else if (is_set(&pkt, PACKET_WRITE))
+		checked_copyfrom(&pkt, mem->buf + offset);
+	else
+		abort();
+
+	mem->pkt = response(pkt);
+	set_flags(&mem->pkt, PACKET_DONE);
 	return OK;
 }
 
@@ -45,8 +64,8 @@ struct component *create_simple_mem(size_t size)
 		return NULL;
 
 	new->size = size;
-	new->component.write = (write_callback)simple_mem_write;
-	new->component.read = (read_callback)simple_mem_read;
+	new->component.receive = (receive_callback)simple_mem_receive;
+	new->component.clock = (clock_callback)simple_mem_clock;
 	return (struct component *)new;
 }
 

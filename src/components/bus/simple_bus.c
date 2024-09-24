@@ -1,154 +1,76 @@
 /* SPDX-License-Identifier: copyleft-next-0.3.1 */
 /* Copyright 2023 Kim Kuparinen < kimi.h.kuparinen@gmail.com > */
-
-#include <threads.h>
-#include <inttypes.h>
-#include <stdlib.h>
-
-#include <gran/common.h>
-#include <gran/component.h>
+#include <stdbool.h>
 
 #include <gran/bus/simple_bus.h>
+#include <gran/vec.h>
 
-struct mem_region {
-	uintptr_t addr;
-	size_t size;
+struct bus_region {
+	uint64_t addr;
+	uint64_t size;
 	struct component *component;
-	struct mem_region *next;
 };
 
 struct simple_bus {
 	struct component component;
-	mtx_t lock;
+	struct vec regions;
 
-	struct mem_region *mem_regions;
+	struct component *send;
+	struct packet pkt;
+	bool busy;
 };
 
-static struct mem_region *find_mem_region(struct simple_bus *bus,
-                                          uintptr_t addr)
+static struct bus_region *find_bus_region(struct simple_bus *bus, uint64_t addr)
 {
-	if (!bus->mem_regions)
-		return NULL;
-
-	struct mem_region *cur = bus->mem_regions;
-	while (cur) {
-		/* address is within memory region */
-		if (addr >= cur->addr && addr < cur->addr + cur->size)
-			return cur;
-
-		cur = cur->next;
+	foreach_vec(i, bus->regions) {
+		struct bus_region *r = vec_at(&bus->regions, i);
+		if (addr >= r->addr && addr < (r->addr + r->size))
+			return r;
 	}
 
 	return NULL;
 }
 
-static stat add_mem_region(struct simple_bus *bus, struct mem_region *new)
+static stat simple_bus_clock(struct simple_bus *bus)
 {
-	if (!bus->mem_regions) {
-		bus->mem_regions = new;
-		return OK;
+	if (bus->busy) {
+		stat r = SEND(bus, bus->send, bus->pkt);
+		if (r == EBUSY)
+			return OK;
+
+		bus->busy = false;
+		return r;
 	}
 
-	struct mem_region *found = NULL;
-	if ((found = find_mem_region(bus, new->addr))) {
-		error("%s overlaps with %s at %" PRIuPTR,
-		      new->component->name,
-		      found->component->name,
-		      new->addr
-		      );
-		return EEXISTS;
-	}
-
-	new->next = bus->mem_regions;
-	bus->mem_regions = new;
 	return OK;
 }
 
-static stat simple_bus_write(struct simple_bus *bus, struct packet *pkt)
+static stat simple_bus_receive(struct simple_bus *bus, struct component *from, struct packet pkt)
 {
-	/* only one device can drive the bus at one time */
-	if (mtx_trylock(&bus->lock) != thrd_success)
+	if (bus->busy)
 		return EBUSY;
 
-	struct mem_region *mem_region = find_mem_region(bus, packet_addr(pkt));
-	if (!mem_region) {
-		warn("nothing to write on bus %s at %" PRIuPTR,
-		     bus->component.name, packet_addr(pkt));
-		return EBUS;
+	bus->busy = true;
+
+	struct bus_region *region = find_bus_region(bus, pkt.to);
+	if (!region) {
+		warn("illegal address on bus %s at %" PRIuPTR,
+		     bus->component.name, pkt.to);
+
+		bus->send = from;
+		bus->pkt = response(pkt);
+		set_flags(&bus->pkt, PACKET_ERROR);
+		return OK;
 	}
 
-	stat ret = write(mem_region->component, pkt);
-
-	mtx_unlock(&bus->lock);
-	return ret;
-}
-
-static stat simple_bus_read(struct simple_bus *bus, struct packet *pkt)
-{
-	/* only one device can drive the bus at one time */
-	if (mtx_trylock(&bus->lock) != thrd_success)
-		return EBUSY;
-
-	struct mem_region *mem_region = find_mem_region(bus, packet_addr(pkt));
-	if (!mem_region) {
-		warn("nothing to read on bus %s at %" PRIuPTR,
-		     bus->component.name, packet_addr(pkt));
-		return EBUS;
-	}
-
-	stat ret = read(mem_region->component, pkt);
-
-	mtx_unlock(&bus->lock);
-	return ret;
-}
-
-static stat simple_bus_swap(struct simple_bus *bus, struct packet *pkt)
-{
-	if (mtx_trylock(&bus->lock) != thrd_success)
-		return EBUSY;
-
-	struct mem_region *mem_region = find_mem_region(bus, packet_addr(pkt));
-	if (!mem_region) {
-		warn("nothing to swap on bus %s at %" PRIuPTR,
-		     bus->component.name, packet_addr(pkt));
-		return EBUS;
-	}
-
-	stat ret = swap(mem_region->component, pkt);
-
-	mtx_unlock(&bus->lock);
-	return ret;
-}
-
-static stat simple_bus_snoop(struct simple_bus *bus, struct snoop *snoop)
-{
-	struct mem_region *cur = bus->mem_regions;
-	while (cur) {
-		if (cur->component->snoop) {
-			stat ret = cur->component->snoop(cur->component, snoop);
-			if (ret)
-				return ret;
-
-			if (snoop_state(snoop) == SNOOP_ANSWERED)
-				return OK;
-		}
-
-		cur = cur->next;
-	}
-
+	bus->send = region->component;
+	bus->pkt = pkt;
 	return OK;
 }
 
 static void simple_bus_destroy(struct simple_bus *bus)
 {
-	struct mem_region *cur = bus->mem_regions, *next = NULL;
-	if (cur)
-		do {
-			next = cur->next;
-			destroy(cur->component);
-			free(cur);
-		} while ((cur = next));
-
+	vec_destroy(&bus->regions);
 	free(bus);
 }
 
@@ -158,34 +80,38 @@ struct component *create_simple_bus()
 	if (!bus)
 		return NULL;
 
-	bus->component.write = (write_callback)simple_bus_write;
-	bus->component.read = (read_callback)simple_bus_read;
-	bus->component.swap = (swap_callback)simple_bus_swap;
-	bus->component.snoop = (snoop_callback)simple_bus_snoop;
-	// actually, still not sure about what API I want to use for controls
-	// bus->component.ctrl = (ctrl_callback)simple_bus_ctrl;
+	bus->component.receive = (receive_callback)simple_bus_receive;
+	bus->component.clock = (clock_callback)simple_bus_clock;
 
 	bus->component.destroy = (destroy_callback)simple_bus_destroy;
+	bus->regions = vec_create(sizeof(struct bus_region));
 
-	mtx_init(&bus->lock, mtx_plain);
 	return (struct component *)bus;
 }
 
 stat simple_bus_add(struct component *bus, struct component *component,
                     uint64_t addr, uint64_t size)
 {
-	struct mem_region *new = calloc(1, sizeof(struct mem_region));
-	if (!new)
-		return ENOMEM;
+	struct simple_bus *b = (struct simple_bus *)bus;
+	struct bus_region *found = find_bus_region(b, addr);
+	if (!found)        found = find_bus_region(b, addr + size);
 
-	new->addr = addr;
-	new->size = size;
-	new->component = component;
+	if (found) {
+		error("%s overlaps with %s at %" PRIuPTR,
+		      found->component->name,
+		      component->name,
+		      found->addr
+		      );
 
-	if (add_mem_region((struct simple_bus *)bus, new)) {
-		free(new);
 		return EEXISTS;
 	}
 
+	struct bus_region new = (struct bus_region){
+		.component = component,
+		.addr = addr,
+		.size = size
+	};
+
+	vect_append(struct bus_region, b->regions, &new);
 	return OK;
 }
