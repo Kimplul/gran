@@ -56,6 +56,9 @@ static stat port_receive(struct port *port, struct packet pkt)
 
 static stat grid_receive(struct grid_node *grid, struct component *from, struct packet pkt)
 {
+	if (rand() % 256 == 0)
+		return EBUSY;
+
 	uint16_t x;
 	uint16_t y;
 	uint64_t addr = pkt.to;

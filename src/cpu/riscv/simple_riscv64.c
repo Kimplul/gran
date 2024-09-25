@@ -25,15 +25,19 @@ struct simple_riscv64 {
 
 	struct component *imem;
 	struct component *dmem;
+	struct component *ctrl;
 
 	struct ldst dls;
 	struct ldst ils;
+	struct ldst cls;
 
 	uint64_t rcv;
 
 	/* have to be careful with x0 */
 	uint64_t regs[32];
 	uint64_t pc;
+
+	bool sleep;
 };
 
 /* big endian format, going from smallest to highest address.
@@ -537,14 +541,57 @@ static stat simple_riscv64_receive(struct simple_riscv64 *cpu, struct component 
 		cpu->ils.state = LDST_DONE;
 		return OK;
 	}
+	else if (pkt.to == cpu->rcv + 128) {
+		assert(packet_convsize(&pkt) == 8);
+		if (cpu->cls.state == LDST_BLOCKED)
+			return EBUSY;
+
+		uint64_t v = packet_convu64(&pkt);
+		if (v == 0) {
+			/* sleep */
+			cpu->sleep = true;
+		}
+		else if (v == 1) {
+			/* wake */
+			cpu->sleep = false;
+		}
+		else {
+			error("illegal control %s\n", cpu->component.name);
+			return EBUS;
+		}
+
+		pkt = response(pkt);
+
+		cpu->ctrl = from;
+		cpu->cls = (struct ldst){pkt, LDST_IDLE, 0, false};
+		stat ret = SEND(cpu, cpu->ctrl, pkt);
+		if (ret == EBUSY)
+			cpu->cls.state = LDST_BLOCKED;
+
+		return OK;
+	}
 	else {
 		error("illegal receive on %s", cpu->component.name);
 		return EBUS;
 	}
+
+	return OK;
 }
 
 static stat simple_riscv64_clock(struct simple_riscv64 *cpu)
 {
+	if (cpu->cls.state != LDST_IDLE) {
+		assert(cpu->cls.state == LDST_BLOCKED);
+		stat r = SEND(cpu, cpu->ctrl, cpu->cls.pkt);
+		if (r == EBUSY)
+			return OK;
+
+		cpu->cls.state = LDST_IDLE;
+	}
+
+	if (cpu->sleep)
+		return OK;
+
 	stat ret = OK;
 
 	/* there's an active data transfer we should handle */
