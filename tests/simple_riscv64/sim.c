@@ -17,17 +17,19 @@ unsigned int simple_sum_len = 36;
 
 int main()
 {
-	const size_t size = 100000;
+	const size_t size = 4096;
 	struct component *imem = create_simple_mem(size);
 
 	/* This works for simple memory, but feels kind of hacky */
 	init_simple_mem(imem, 0, simple_sum_len, simple_sum);
 
 	struct component *dmem = create_simple_mem(size);
-	struct component *rv64 = create_simple_riscv64(0, imem, dmem);
+	struct component *rv64 = create_simple_riscv64(4096, 0, imem, dmem);
 
 	struct clock_domain *clk = create_clock_domain(NS(1));
 	clock_domain_add(clk, rv64);
+	clock_domain_add(clk, imem);
+	clock_domain_add(clk, dmem);
 
 	struct gran_root *root = create_root();
 	root_add_clock(root, clk);

@@ -149,7 +149,7 @@ static void set_reg(struct simple_riscv64 *cpu, size_t i, uint64_t v)
 
 #define EXTEND_IMM12(x) ((int32_t)((x) << 20) >> 20)
 #define EXTEND_IMM20(x) ((int32_t)((x) << 12) >> 12)
-#define SHAMT(x) ((x) & 0b11111)
+#define SHAMT(x) ((x) & 0b111111)
 
 static stat op_imm(struct simple_riscv64 *cpu, union rv_insn insn)
 {
@@ -545,6 +545,8 @@ static stat simple_riscv64_receive(struct simple_riscv64 *cpu, struct component 
 
 static stat simple_riscv64_clock(struct simple_riscv64 *cpu)
 {
+	stat ret = OK;
+
 	/* there's an active data transfer we should handle */
 	if (cpu->dls.state != LDST_IDLE) {
 		assert(!is_set(&cpu->dls.pkt, PACKET_ERROR));
@@ -569,15 +571,15 @@ static stat simple_riscv64_clock(struct simple_riscv64 *cpu)
 			return OK;
 	}
 
-	if (cpu->ils.state == LDST_BLOCKED) {
-		stat ret = SEND(cpu, cpu->imem, cpu->ils.pkt);
-		if (ret == EBUSY)
-			return OK;
+	if (cpu->ils.state == LDST_BLOCKED)
+		goto send;
 
+	if (cpu->ils.state == LDST_SENT)
 		return OK;
-	}
 
-	uint32_t insn = 0;
+	/* this effectively encodes a NOP */
+	uint32_t insn = OP_IMM;
+
 	if (cpu->ils.state == LDST_DONE) {
 		assert(!is_set(&cpu->dls.pkt, PACKET_ERROR));
 
@@ -585,24 +587,9 @@ static stat simple_riscv64_clock(struct simple_riscv64 *cpu)
 		cpu->ils.state = LDST_IDLE;
 	}
 
-	if (cpu->ils.state == LDST_IDLE) {
-		cpu->ils.pkt = create_packet(cpu->rcv + 64,
-						cpu->pc,
-						sizeof(uint32_t),
-						NULL,
-						PACKET_READ);
-		cpu->ils.state = LDST_SENT;
-		stat ret = SEND(cpu, cpu->imem, cpu->ils.pkt);
-		if (ret == EBUSY) {
-			cpu->ils.state = LDST_BLOCKED;
-			return ret;
-		}
-	}
-
 	// for now assume little endian emulated and host cpu
 	union rv_insn i = {.val = insn};
 
-	stat ret = OK;
 	// all formats have identical opcodes, use whatever
 	switch (i.rtype.op) {
 	case OP_IMM: ret = op_imm(cpu, i); break;
@@ -625,17 +612,30 @@ static stat simple_riscv64_clock(struct simple_riscv64 *cpu)
 		return ENOSUCH;
 	}
 
+	if (cpu->ils.state == LDST_IDLE) {
+		cpu->ils.pkt = create_packet(cpu->rcv + 64,
+						cpu->pc,
+						sizeof(uint32_t),
+						NULL,
+						PACKET_READ);
+		cpu->ils.state = LDST_BLOCKED;
+	}
+
+send:
+	if (cpu->ils.state == LDST_BLOCKED) {
+		stat ret = SEND(cpu, cpu->imem, cpu->ils.pkt);
+		if (ret == EBUSY) {
+			cpu->ils.state = LDST_BLOCKED;
+			return ret;
+		}
+
+		cpu->ils.state = LDST_SENT;
+	}
+
 	return ret;
 }
 
-static void simple_riscv64_destroy(struct simple_riscv64 *cpu)
-{
-	destroy(cpu->imem);
-	destroy(cpu->dmem);
-	free(cpu);
-}
-
-struct component *create_simple_riscv64(uint64_t rcv, uint32_t start_pc,
+struct component *create_simple_riscv64(uint64_t rcv, uint64_t start_pc,
                                         struct component *imem,
                                         struct component *dmem)
 {
@@ -645,12 +645,20 @@ struct component *create_simple_riscv64(uint64_t rcv, uint32_t start_pc,
 
 	new->component.receive = (receive_callback)simple_riscv64_receive;
 	new->component.clock = (clock_callback)simple_riscv64_clock;
-	new->component.destroy = (destroy_callback)simple_riscv64_destroy;
 
 	new->pc = start_pc;
 	new->rcv = rcv;
 	new->imem = imem;
 	new->dmem = dmem;
+
+	/* fetch new instruction at start */
+	new->ils.state = LDST_BLOCKED;
+	new->ils.pkt = create_packet(new->rcv + 64,
+					new->pc,
+					sizeof(uint32_t),
+					NULL,
+					PACKET_READ);
+
 	return (struct component *)new;
 }
 

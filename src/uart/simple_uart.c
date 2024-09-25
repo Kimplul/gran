@@ -38,6 +38,7 @@ static stat simple_uart_receive(struct simple_uart *uart, struct component *from
 	}
 
 	putchar(packet_convu8(&pkt));
+	fflush(stdout);
 	set_flags(&uart->pkt, PACKET_DONE);
 	return OK;
 }

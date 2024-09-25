@@ -1,14 +1,17 @@
 #define X 64
 #define Y 64
 
-void _start(unsigned char x, unsigned char y)
+void _start(unsigned short x, unsigned short y)
 {
-	volatile unsigned long *counter = (unsigned long *)4096;
-	volatile char *uart = (char *)8192;
+	volatile unsigned long *counter = (unsigned long *)((1ULL << 48) | (1ULL << 32));
+	volatile char *uart = (char *)4096;
 
 	/* very hacky, not recommended but good enough for testing */
-	if (x == 0 && y == 0)
+	if (x == 0 && y == 1) {
 		*counter = 0;
+		*uart = '0';
+		*uart = '\n';
+	}
 	else
 		while (*counter != ((x << 8) | y))
 			;

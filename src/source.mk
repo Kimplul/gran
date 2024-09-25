@@ -1,6 +1,4 @@
-include src/components/source.mk
+include src/*/source.mk
 
-# everything except main
-SRC_LOCAL != echo src/*.c | sed 's|src/main.c||g'
-SOURCES += $(SRC_LOCAL)
-MAIN_SRC = src/main.c
+SOURCES += src/root.c src/clock_domain.c src/vec.c
+MAIN_SRC += src/main.c

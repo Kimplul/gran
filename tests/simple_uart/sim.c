@@ -31,10 +31,15 @@ int main()
 	simple_bus_add(bus, dmem, 0, size);
 	simple_bus_add(bus, uart, size, 1);
 
-	struct component *rv64 = create_simple_riscv64(0, imem, bus);
+	struct component *rv64 = create_simple_riscv64(8192, 0, imem, bus);
+	simple_bus_add(bus, rv64, 8192, 4096);
 
 	struct clock_domain *clk = create_clock_domain(NS(1));
 	clock_domain_add(clk, rv64);
+	clock_domain_add(clk, dmem);
+	clock_domain_add(clk, imem);
+	clock_domain_add(clk, bus);
+	clock_domain_add(clk, uart);
 
 	struct gran_root *root = create_root();
 	root_add_clock(root, clk);

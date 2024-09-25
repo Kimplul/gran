@@ -19,7 +19,7 @@ struct simple_mem {
 
 static stat simple_mem_clock(struct simple_mem *mem)
 {
-	if (mem->busy)
+	if (!mem->busy)
 		return OK;
 
 	stat r = SEND(mem, mem->send, mem->pkt);
@@ -35,6 +35,7 @@ static stat simple_mem_receive(struct simple_mem *mem, struct component *from, s
 	if (mem->busy)
 		return EBUSY;
 
+	mem->busy = true;
 	mem->send = from;
 
 	uint64_t offset = pkt.to % mem->size;

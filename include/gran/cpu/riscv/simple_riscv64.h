@@ -6,7 +6,7 @@
 
 #include <gran/component.h>
 
-struct component *create_simple_riscv64(uint64_t rcv, uint32_t start_pc,
+struct component *create_simple_riscv64(uint64_t rcv, uint64_t start_pc,
                                         struct component *imem,
                                         struct component *dmem);
 
