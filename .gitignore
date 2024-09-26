@@ -3,3 +3,4 @@ docs/output
 build
 gran
 !include/gran
+pdf

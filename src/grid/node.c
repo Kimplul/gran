@@ -20,29 +20,104 @@ struct grid_node {
 	uint16_t x, y;
 
 	struct port left, right, up, down, lower;
+
+	unsigned priority;
 };
 
-static void port_clock(struct grid_node *grid, struct port *port)
+static stat port_clock(struct grid_node *grid, struct port *to, struct port *from)
 {
-	if (!port->busy)
-		return;
+	assert(from->busy);
+	stat r = SEND(grid, to->send, from->pkt);
+	if (r == EBUSY) {
+		grid->priority++;
+		return OK;
+	}
 
-	stat r = SEND(grid, port->send, port->pkt);
-	if (r == EBUSY)
-		return;
+	from->busy = false;
+	return OK;
+}
 
-	port->busy = false;
+static struct port *select_input(struct grid_node *grid)
+{
+	struct port *ports[5] = {
+		&grid->left,
+		&grid->right,
+		&grid->up,
+		&grid->down,
+		&grid->lower,
+	};
+	for (size_t i = 0; i < 5; ++i) {
+		size_t idx = (i + grid->priority) % 5;
+		struct port *port = ports[idx];
+		if (!port)
+			continue;
+
+		if (!port->busy)
+			continue;
+
+		return port;
+	}
+
+	return NULL;
+}
+
+static stat clock_once(struct grid_node *grid)
+{
+	struct port *input = select_input(grid);
+	if (!input)
+		return OK;
+
+	uint16_t x;
+	uint16_t y;
+	uint64_t addr = input->pkt.to;
+	addr_grid(addr, NULL, &x, &y);
+
+	if (grid->x == x && grid->y == y) {
+		if (!grid->lower.send)
+			goto nosuch;
+
+		return port_clock(grid, &grid->lower, input);
+	}
+
+	if (y < grid->y) {
+		if (!grid->down.send)
+			goto nosuch;
+
+		return port_clock(grid, &grid->down, input);
+	}
+
+	if (y > grid->y) {
+		if (!grid->up.send)
+			goto nosuch;
+
+		return port_clock(grid, &grid->up, input);
+	}
+
+	if (x < grid->x) {
+		if (!grid->left.send)
+			goto nosuch;
+
+		return port_clock(grid, &grid->left, input);
+	}
+
+	if (x > grid->x) {
+		if (!grid->right.send)
+			goto nosuch;
+
+		return port_clock(grid, &grid->right, input);
+	}
+
+nosuch:
+	abort();
+	return OK;
 }
 
 static stat grid_clock(struct grid_node *grid)
 {
-	port_clock(grid, &grid->left);
-	port_clock(grid, &grid->right);
-	port_clock(grid, &grid->up);
-	port_clock(grid, &grid->down);
-	port_clock(grid, &grid->lower);
+	clock_once(grid);
 	return OK;
 }
+
 
 static stat port_receive(struct port *port, struct packet pkt)
 {
@@ -56,51 +131,6 @@ static stat port_receive(struct port *port, struct packet pkt)
 
 static stat grid_receive(struct grid_node *grid, struct component *from, struct packet pkt)
 {
-	if (rand() % 256 == 0)
-		return EBUSY;
-
-	uint16_t x;
-	uint16_t y;
-	uint64_t addr = pkt.to;
-	addr_grid(addr, NULL, &x, &y);
-
-	if (grid->x == x && grid->y == y) {
-		if (!grid->lower.send)
-			goto nosuch;
-
-		return port_receive(&grid->lower, pkt);
-	}
-
-	if (y < grid->y) {
-		if (!grid->down.send)
-			goto nosuch;
-
-		return port_receive(&grid->down, pkt);
-	}
-
-	if (y > grid->y) {
-		if (!grid->up.send)
-			goto nosuch;
-
-		return port_receive(&grid->up, pkt);
-	}
-
-	if (x < grid->x) {
-		if (!grid->left.send)
-			goto nosuch;
-
-		return port_receive(&grid->left, pkt);
-	}
-
-	if (x > grid->x) {
-		if (!grid->right.send)
-			goto nosuch;
-
-		return port_receive(&grid->right, pkt);
-	}
-
-nosuch:
-	set_flags(&pkt, PACKET_ERROR);
 	if (from == grid->lower.send)
 		return port_receive(&grid->lower, pkt);
 
