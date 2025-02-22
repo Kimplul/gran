@@ -1,0 +1,26 @@
+Slightly drunken ramblings:
+
+Currently, I'm imagining that a 3D torus with one-way communication would
+probably be the best way forward. It has some nice properties like a fairly
+simple construction, decent average response times (but not the best minimum
+response times, unfortunately) and a fairly simple broadcast scheme (though
+without ack).
+
+Coherence is of course more difficult, but I would imagine that
+changing the memory model to be a bit more loose wouldn't hurt. Essentially, we
+would have one node somewhere be a global 'lock' that gives out LR/SC
+permissions, fairly high latency unfortunately but arguably the simplest
+approach. All caches are not coherent, but would have to respect atomic
+operations.
+
+One maybe interesting thing could be to not have virtual memory, instead opt for
+some kind of k-tree with byte-accurate permissions, kind of like cheri. Each
+pointer could have a second pointer that tells which allocation it is from, and
+we have a TLB-like cache for fast lookups. We could also have multiple of these
+trees, one in local memory for private allocations, for example. With process
+IDs, my beloved. Also, semi-cooperative interrupts? With enough cores, static
+thread scheduling might also be workable. Potentially also external node access
+checking, so untrusted packets can't read memory that's not for some process
+(avoid stuff like the router capturing thing in Linux wifi fw).
+
+
