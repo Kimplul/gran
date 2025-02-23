@@ -1,1 +1,5 @@
 add stats
+
++ torus3d gets stuck because sometimes there's not output path, I guess one
+  solution could be to add two 'output' virtual channels, but that seems a bit
+  wasteful. I'll have to think about some alternatives

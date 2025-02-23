@@ -20,6 +20,8 @@ struct torus3d_node {
 	struct port port_x, port_y, port_z;
 
 	struct reg x_in, y_in, z_in, child_in;
+
+	bool prio;
 };
 
 static stat port_receive(struct torus3d_node *torus3d, struct port *port, struct reg *reg)
@@ -37,23 +39,15 @@ static stat port_receive(struct torus3d_node *torus3d, struct port *port, struct
 
 	/* Dally/spiral routing though I'm a bit unsure if this works for 2D/3D
 	 * toruses (1D seems to work, 2D not so much atm) */
-	int chan = 0;
-	if (port == &torus3d->port_x)
-		chan = sx < dx;
-	else if (port == &torus3d->port_y)
-		chan = sy < dy;
-	else if (port == &torus3d->port_z)
-		chan = sz < dz;
-	else
-		abort();
-
+	int chan = is_set(&reg->pkt, PACKET_DONE);
 	if (port->r[chan].busy)
 		return OK;
 
-	printf("(%d, %d, %d) to (%d, %d, %d) via (%d, %d, %d)\n",
+	printf("(%d, %d, %d) to (%d, %d, %d) via (%d, %d, %d) c %d\n",
 			sx, sy, sz,
 			dx, dy, dz,
-			torus3d->x, torus3d->y, torus3d->z);
+			torus3d->x, torus3d->y, torus3d->z,
+			chan);
 
 	port->r[chan].pkt = reg->pkt;
 	port->r[chan].busy = true;
@@ -113,18 +107,23 @@ static void maybe_route_reg(struct torus3d_node *torus3d, struct reg *reg, enum 
 	}
 }
 
-static void maybe_route_port(struct torus3d_node *torus3d, struct port *port, enum match m, uint64_t *oldest, struct packet **pkt, bool **busy)
-{
-	maybe_route_reg(torus3d, &port->r[0], m, oldest, pkt, busy);
-	maybe_route_reg(torus3d, &port->r[1], m, oldest, pkt, busy);
-}
-
 static stat route(struct torus3d_node *torus3d, struct component *next, enum match m)
 {
+	bool prio = torus3d->prio;
 	uint64_t oldest = -1; struct packet *pkt = NULL; bool *busy = NULL;
-	maybe_route_port(torus3d, &torus3d->port_x, m, &oldest, &pkt, &busy);
-	maybe_route_port(torus3d, &torus3d->port_y, m, &oldest, &pkt, &busy);
-	maybe_route_port(torus3d, &torus3d->port_z, m, &oldest, &pkt, &busy);
+
+	/* prioritise current priority port */
+	maybe_route_reg(torus3d, &torus3d->port_x.r[prio], m, &oldest, &pkt, &busy);
+	maybe_route_reg(torus3d, &torus3d->port_y.r[prio], m, &oldest, &pkt, &busy);
+	maybe_route_reg(torus3d, &torus3d->port_z.r[prio], m, &oldest, &pkt, &busy);
+
+	/* if no suitable match found, check other ports as well */
+	if (pkt == NULL) {
+		maybe_route_reg(torus3d, &torus3d->port_x.r[!prio], m, &oldest, &pkt, &busy);
+		maybe_route_reg(torus3d, &torus3d->port_y.r[!prio], m, &oldest, &pkt, &busy);
+		maybe_route_reg(torus3d, &torus3d->port_z.r[!prio], m, &oldest, &pkt, &busy);
+	}
+
 	maybe_route_reg(torus3d, &torus3d->child_in, m, &oldest, &pkt, &busy);
 
 	/* no suitable match */
@@ -143,6 +142,8 @@ static stat route(struct torus3d_node *torus3d, struct component *next, enum mat
 
 static stat torus3d_clock(struct torus3d_node *torus3d)
 {
+	torus3d->prio = !torus3d->prio;
+
 	stat ret = OK;
 	if ((ret = port_receive(torus3d, &torus3d->port_x, &torus3d->x_in)))
 		return ret;

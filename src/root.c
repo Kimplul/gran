@@ -8,9 +8,6 @@
 
 #define MAX_DOMAINS 512
 
-/** @todo ugly global, time values should be taken from local clock domain */
-uint64_t ticker = 0;
-
 struct gran_root {
 	size_t num_domains;
 	struct clock_domain *(domains[MAX_DOMAINS]);

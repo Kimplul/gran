@@ -36,6 +36,7 @@ struct component {
 
 static inline stat send(struct component *from, struct component *to, struct packet pkt)
 {
+	assert(to && from);
 	if (!to->receive) {
 		/* printf formatted asserts would maybe be preferable? */
 		error(

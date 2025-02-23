@@ -179,20 +179,15 @@ static inline uint64_t packet_convu64(struct packet *pkt)
 	return res;
 }
 
-/* not good, should be taken from the local clock domain or something
- * but eh for now */
-extern uint64_t ticker;
-
 static inline struct packet create_packet(uint64_t from, uint64_t to, uint64_t size, void *data, enum packet_flags flags)
 {
 	assert(size <= 64);
 	assert(packet_align(from) == from);
 
-
 	uint64_t aligned = packet_align(to);
 	uint64_t mask = packet_mask(to, size);
 	struct packet pkt = (struct packet){
-		.timestamp = ticker++,
+		.timestamp = 0,
 		.from = from,
 		.to = aligned,
 		.mask = mask,
