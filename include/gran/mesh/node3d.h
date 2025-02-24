@@ -1,23 +1,21 @@
-#ifndef GRAN_GRID_NODE3D_H
-#define GRAN_GRID_NODE3D_H
-
-/** @todo rename to mesh to follow conventions a bit better */
+#ifndef GRAN_MESH_NODE3D_H
+#define GRAN_MESH_NODE3D_H
 
 #include <gran/component.h>
 #include <stdint.h>
 
-struct component *create_grid_node3d(uint8_t x, uint8_t y, uint8_t z);
+struct component *create_mesh_node3d(uint8_t x, uint8_t y, uint8_t z);
 
-stat grid_node3d_connect(struct component *node,
+stat mesh_node3d_connect(struct component *node,
 		struct component *n,
 		struct component *s,
-		struct component *w,
 		struct component *e,
+		struct component *w,
 		struct component *u,
 		struct component *d,
 		struct component *l);
 
-static inline uint64_t grid3d_addr(uint8_t x, uint8_t y, uint8_t z, uint32_t off)
+static inline uint64_t mesh3d_addr(uint8_t x, uint8_t y, uint8_t z, uint32_t off)
 {
 	return off
 		| ((uint64_t)x << 32)
@@ -26,7 +24,7 @@ static inline uint64_t grid3d_addr(uint8_t x, uint8_t y, uint8_t z, uint32_t off
 		;
 }
 
-static inline void addr_grid3d(uint64_t addr, uint8_t *x, uint8_t *y, uint8_t *z, uint32_t *off)
+static inline void addr_mesh3d(uint64_t addr, uint8_t *x, uint8_t *y, uint8_t *z, uint32_t *off)
 {
 	if (off) *off = addr & 0xffffffff;
 	if (x) *x = (addr >> 32) & 0xff;

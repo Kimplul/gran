@@ -1,4 +1,4 @@
-/* testcase for a 64x64 grid of processors, that all just spam the first memory
+/* testcase for a 64x64 mesh of processors, that all just spam the first memory
  * region due to there being a 'lock' variable there, more or less the worst
  * possible program for performance. */
 #include <assert.h>
@@ -7,7 +7,7 @@
 #include <gran/mem/simple_mem.h>
 #include <gran/bus/simple_bus.h>
 #include <gran/uart/simple_uart.h>
-#include <gran/grid/node.h>
+#include <gran/mesh/node.h>
 #include <gran/cpu/riscv/simple_riscv64.h>
 
 unsigned char _tmp_test_bin[] = {
@@ -36,7 +36,7 @@ unsigned char _tmp_test_bin[] = {
 };
 unsigned int _tmp_test_bin_len = 260;
 
-static struct component *get_grid(struct component **grid, int i, int j, uint8_t x, uint8_t y)
+static struct component *get_mesh(struct component **mesh, int i, int j, uint8_t x, uint8_t y)
 {
 	if (i < 0)
 		return NULL;
@@ -50,22 +50,22 @@ static struct component *get_grid(struct component **grid, int i, int j, uint8_t
 	if (j >= y)
 		return NULL;
 
-	return grid[i * x + j];
+	return mesh[i * x + j];
 }
 
-static stat build_grid(struct clock_domain *clk, uint8_t x, uint8_t y)
+static stat build_mesh(struct clock_domain *clk, uint8_t x, uint8_t y)
 {
-	struct component **grid = calloc(x * y, sizeof(struct component *));
-	assert(grid);
+	struct component **mesh = calloc(x * y, sizeof(struct component *));
+	assert(mesh);
 
 	struct component **pes = calloc(x * y, sizeof(struct component *));
 	assert(pes);
 
 	for (size_t i = 0; i < x; ++i)
 	for (size_t j = 0; j < y; ++j) {
-		struct component *node = create_grid_node(i, j);
+		struct component *node = create_mesh_node(i, j);
 		clock_domain_add(clk, node);
-		grid[i * x + j] = node;
+		mesh[i * x + j] = node;
 
 		if (i == 0 && j == 0)
 			continue;
@@ -76,7 +76,7 @@ static stat build_grid(struct clock_domain *clk, uint8_t x, uint8_t y)
 		struct component *imem = create_simple_mem(4096);
 		init_simple_mem(imem, 0, _tmp_test_bin_len, _tmp_test_bin);
 
-		uint64_t rcv = grid_addr(i, j, 0);
+		uint64_t rcv = mesh_addr(i, j, 0);
 		struct component *rv64 = create_simple_riscv64(rcv, 0, imem, node);
 		simple_riscv64_set_reg(rv64, 10, i); /* a0 */
 		simple_riscv64_set_reg(rv64, 11, j); /* a1 */
@@ -89,11 +89,11 @@ static stat build_grid(struct clock_domain *clk, uint8_t x, uint8_t y)
 
 	struct component *uart = create_simple_uart();
 	clock_domain_add(clk, uart);
-	grid_node_connect(grid[0], NULL, grid[x], grid[1], NULL, uart);
+	mesh_node_connect(mesh[0], NULL, mesh[x], mesh[1], NULL, uart);
 
 	struct component *dmem = create_simple_mem(4096);
 	clock_domain_add(clk, dmem);
-	grid_node_connect(grid[1], NULL, grid[x + 1], grid[2], grid[0], dmem);
+	mesh_node_connect(mesh[1], NULL, mesh[x + 1], mesh[2], mesh[0], dmem);
 
 	for (int i = 0; i < x; ++i)
 	for (int j = 0; j < y; ++j) {
@@ -103,17 +103,17 @@ static stat build_grid(struct clock_domain *clk, uint8_t x, uint8_t y)
 		if (i == 0 && j == 1)
 			continue;
 
-		struct component *node  = grid[i * x + j];
+		struct component *node  = mesh[i * x + j];
 		struct component *lower = pes[i * x + j];
-		struct component *left  = get_grid(grid, i - 1, j    , x, y);
-		struct component *right = get_grid(grid, i + 1, j    , x, y);
-		struct component *up    = get_grid(grid, i    , j + 1, x, y);
-		struct component *down  = get_grid(grid, i    , j - 1, x, y);
-		grid_node_connect(node, left, right, up, down, lower);
+		struct component *left  = get_mesh(mesh, i - 1, j    , x, y);
+		struct component *right = get_mesh(mesh, i + 1, j    , x, y);
+		struct component *up    = get_mesh(mesh, i    , j + 1, x, y);
+		struct component *down  = get_mesh(mesh, i    , j - 1, x, y);
+		mesh_node_connect(node, left, right, up, down, lower);
 	}
 
 	free(pes);
-	free(grid);
+	free(mesh);
 	return OK;
 }
 
@@ -121,7 +121,7 @@ int main()
 {
 	struct clock_domain *clk = create_clock_domain(NS(1));
 
-	stat r = build_grid(clk, 16, 16);
+	stat r = build_mesh(clk, 16, 16);
 	assert(r == OK);
 
 	struct gran_root *root = create_root();
