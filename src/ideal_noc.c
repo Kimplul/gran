@@ -17,7 +17,7 @@ struct noc {
 	struct component **lower; /* countedby[elems] */
 };
 
-stat ideal_noc_receive(struct noc *n, struct component *from, struct packet pkt)
+static stat ideal_noc_receive(struct noc *n, struct component *from, struct packet pkt)
 {
 	(void)from; /* unused */
 	uint32_t elem;
@@ -33,7 +33,7 @@ stat ideal_noc_receive(struct noc *n, struct component *from, struct packet pkt)
 	return OK;
 }
 
-stat ideal_noc_clock(struct noc *n)
+static stat ideal_noc_clock(struct noc *n)
 {
 	size_t counter = n->latency == 0 ? 0 : (n->counter + 1) % n->latency;
 	if (counter != 0)
@@ -78,7 +78,7 @@ stat ideal_noc_clock(struct noc *n)
 	return OK;
 }
 
-void ideal_noc_destroy(struct noc *n)
+static void ideal_noc_destroy(struct noc *n)
 {
 	free(n->in);
 	free(n->out);

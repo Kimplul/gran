@@ -1,0 +1,3 @@
+[submodule "deps/conts"]
+	path = deps/conts
+	url = https://metanimi.dy.fi/git/conts
