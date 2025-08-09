@@ -15,7 +15,6 @@ static stat build_node1d(struct clock_domain *clk, uint16_t x, uint16_t y)
 	assert(mesh);
 
 	for (int i = 1; i < x + 1; ++i) {
-		/* 4 CPUs + 1 mem = 5 elems in total */
 		struct component *node = create_mesh_node1d(i, y + 1);
 		clock_domain_add(clk, node);
 		mesh[i] = node;
@@ -23,8 +22,8 @@ static stat build_node1d(struct clock_domain *clk, uint16_t x, uint16_t y)
 		for (int j = 0; j < y; ++j) {
 			struct component *imem = create_simple_mem(4096);
 			init_simple_mem(imem, 0,
-					build_tests_simple_mesh1d_test_bin_len,
-					build_tests_simple_mesh1d_test_bin);
+			                build_tests_simple_mesh1d_test_bin_len,
+			                build_tests_simple_mesh1d_test_bin);
 
 			uint64_t rcv = mesh1d_addr(i, j, 0);
 			struct component *rv64 = create_simple_riscv64(rcv, 0, imem, node);
@@ -44,7 +43,7 @@ static stat build_node1d(struct clock_domain *clk, uint16_t x, uint16_t y)
 		mesh_node1d_connect(node, dmem, 4);
 	}
 
-	/* extra I/O node (kind of?) */
+	/* extra I/O node */
 	struct component *node = create_mesh_node1d(0, 2);
 	clock_domain_add(clk, node);
 	mesh[0] = node;
@@ -59,10 +58,10 @@ static stat build_node1d(struct clock_domain *clk, uint16_t x, uint16_t y)
 
 	for (int i = 0; i < x + 1; ++i) {
 		if (i - 1 >= 0)
-			mesh_node1d_connect_right(mesh[i], mesh[i - 1]);
+			mesh_node1d_connect_south(mesh[i], mesh[i - 1]);
 
 		if (i + 1 < x + 1)
-			mesh_node1d_connect_left(mesh[i], mesh[i + 1]);
+			mesh_node1d_connect_north(mesh[i], mesh[i + 1]);
 	}
 
 	free(mesh);

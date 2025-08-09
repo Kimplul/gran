@@ -5,6 +5,10 @@
 #define GRAN_COMMON_H
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <stddef.h>
+#include <stdbool.h>
+#include "packet.h"
 
 typedef enum {
 	OK = 0,
@@ -33,5 +37,25 @@ typedef enum {
 #else
 #define debug(x, ...)
 #endif
+
+struct reg {
+	struct packet pkt;
+	bool busy;
+};
+
+/* Places \p pkt into \p r if \r is not busy. Returns EBUSY if register was
+ * busy, otherwise OK. */
+stat place_reg(struct reg *r, struct packet pkt);
+
+/* If \p is free, copies packet from \p s to \p r, marking each correspondigly
+ * free/busy. Returns EBUSY if \r was busy, otherwise OK. */
+stat copy_reg(struct reg *r, struct reg *s);
+
+/* For each register in \p in, calls \p sel to check if packet in registers
+ * should be moved to \p out. If there are multiple available registers, oldest
+ * one is selected. NULL entries in \p in are tolerated. */
+void propagate(struct reg *out,
+		size_t count, struct reg *in[static count],
+		bool (*sel)(struct reg *r, void *data), void *data);
 
 #endif /* GRAN_COMMON_H */

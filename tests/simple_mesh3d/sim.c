@@ -19,8 +19,8 @@ static size_t idx_1d(int x, int y, int z, uint8_t xw, uint8_t yw, uint8_t zw)
 }
 
 static struct component *mesh_at(struct component **mesh,
-		int x, int y, int z,
-		uint8_t xw, uint8_t yw, uint8_t zw)
+                                 int x, int y, int z,
+                                 uint8_t xw, uint8_t yw, uint8_t zw)
 {
 	if (x < 0)
 		return NULL;
@@ -44,20 +44,21 @@ static struct component *mesh_at(struct component **mesh,
 }
 
 static void connect_mesh3d(struct component **mesh, struct component *c,
-		uint8_t x,  uint8_t y,  uint8_t z,
-		uint8_t xw, uint8_t yw, uint8_t zw)
+                           uint8_t x,  uint8_t y,  uint8_t z,
+                           uint8_t xw, uint8_t yw, uint8_t zw)
 {
-	mesh_node3d_connect(mesh_at(mesh, x, y, z, xw, yw, zw),
-			mesh_at(mesh, x  , y+1, z  , xw, yw, zw),
-			mesh_at(mesh, x  , y-1, z  , xw, yw, zw),
-			mesh_at(mesh, x+1, y  , z  , xw, yw, zw),
-			mesh_at(mesh, x-1, y  , z  , xw, yw, zw),
-			mesh_at(mesh, x  , y  , z+1, xw, yw, zw),
-			mesh_at(mesh, x  , y  , z-1, xw, yw, zw),
-			c);
+	struct component *n = mesh_at(mesh, x, y, z, xw, yw, zw);
+	mesh_node3d_connect(n, c, 0);
+	mesh_node3d_connect_north(n, mesh_at(mesh, x, y+1, z, xw, yw, zw));
+	mesh_node3d_connect_south(n, mesh_at(mesh, x, y-1, z, xw, yw, zw));
+	mesh_node3d_connect_east(n, mesh_at(mesh, x+1, y, z, xw, yw, zw));
+	mesh_node3d_connect_west(n, mesh_at(mesh, x-1, y, z, xw, yw, zw));
+	mesh_node3d_connect_down(n, mesh_at(mesh, x, y, z-1, xw, yw, zw));
+	mesh_node3d_connect_up(n, mesh_at(mesh, x, y, z+1, xw, yw, zw));
 }
 
-static stat build_mesh3d(struct clock_domain *clk, uint8_t x, uint8_t y, uint8_t z)
+static stat build_mesh3d(struct clock_domain *clk, uint8_t x, uint8_t y,
+                         uint8_t z)
 {
 	struct component **mesh = calloc(x * y * z, sizeof(struct component *));
 	assert(mesh);
@@ -68,7 +69,7 @@ static stat build_mesh3d(struct clock_domain *clk, uint8_t x, uint8_t y, uint8_t
 	for (size_t i = 0; i < x; ++i)
 	for (size_t j = 0; j < y; ++j)
 	for (size_t k = 0; k < z; ++k) {
-		struct component *node = create_mesh_node3d(i, j, k);
+		struct component *node = create_mesh_node3d(i, j, k, 1);
 		clock_domain_add(clk, node);
 		mesh[idx_1d(i, j, k, x, y, z)] = node;
 
@@ -83,7 +84,7 @@ static stat build_mesh3d(struct clock_domain *clk, uint8_t x, uint8_t y, uint8_t
 				build_tests_simple_mesh3d_test_bin_len,
 				build_tests_simple_mesh3d_test_bin);
 
-		uint64_t rcv = mesh3d_addr(i, j, k, 0);
+		uint64_t rcv = mesh3d_addr(i, j, k, 0, 0);
 		struct component *rv64 = create_simple_riscv64(rcv, 0, imem, node);
 		simple_riscv64_set_reg(rv64, 10, i); /* a0 */
 		simple_riscv64_set_reg(rv64, 11, j); /* a1 */
@@ -115,9 +116,7 @@ static stat build_mesh3d(struct clock_domain *clk, uint8_t x, uint8_t y, uint8_t
 		if (i == 0 && j == 0 && k == 1)
 			continue;
 
-		connect_mesh3d(mesh,
-				pes[idx_1d(i, j, k, x, y, z)],
-				i, j, k, x, y, z);
+		connect_mesh3d(mesh, pes[idx_1d(i, j, k, x, y, z)], i, j, k, x, y, z);
 	}
 
 	free(mesh);

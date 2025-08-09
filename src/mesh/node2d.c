@@ -1,24 +1,19 @@
 #include <gran/mesh/node2d.h>
 
 #define north_port(n) (n)->ports[(n)->elems + 0]
-#define east_port(n)  (n)->ports[(n)->elems + 1]
+#define east_port(n) (n)->ports[(n)->elems + 1]
 #define south_port(n) (n)->ports[(n)->elems + 2]
-#define west_port(n)  (n)->ports[(n)->elems + 3]
+#define west_port(n) (n)->ports[(n)->elems + 3]
 
 #define north_in(n) (n)->in[(n)->elems + 0]
-#define east_in(n)  (n)->in[(n)->elems + 1]
+#define east_in(n) (n)->in[(n)->elems + 1]
 #define south_in(n) (n)->in[(n)->elems + 2]
-#define west_in(n)  (n)->in[(n)->elems + 3]
+#define west_in(n) (n)->in[(n)->elems + 3]
 
 #define north_out(n) (n)->out[(n)->elems + 0]
-#define east_out(n)  (n)->out[(n)->elems + 1]
+#define east_out(n) (n)->out[(n)->elems + 1]
 #define south_out(n) (n)->out[(n)->elems + 2]
-#define west_out(n)  (n)->out[(n)->elems + 3]
-
-struct reg {
-	struct packet pkt;
-	bool busy;
-};
+#define west_out(n) (n)->out[(n)->elems + 3]
 
 struct node2d {
 	struct component component;
@@ -32,6 +27,14 @@ struct node2d {
 	struct component **ports; /* countedby[elems + 4] */
 };
 
+static void node2d_destroy(struct node2d *n)
+{
+	free(n->in);
+	free(n->out);
+	free(n->ports);
+	free(n);
+}
+
 static void clock_outputs(struct node2d *n)
 {
 	for (int i = 0; i < n->elems + 4; ++i) {
@@ -44,39 +47,6 @@ static void clock_outputs(struct node2d *n)
 
 		n->out[i].busy = false;
 	}
-}
-
-static void copy_reg(struct reg *r, struct reg *s)
-{
-	assert(s->busy);
-	if (r->busy)
-		return;
-
-	r->pkt = s->pkt;
-	r->busy = true;
-	s->busy = false;
-}
-
-static void propagate(struct reg *out,
-		size_t count, struct reg *in[static count],
-		bool (*sel)(struct reg *r, void *data), void *data)
-{
-	struct reg *r = NULL;
-	for (size_t i = 0; i < count; ++i) {
-		if (!in[i] || !in[i]->busy)
-			continue;
-
-		if (!sel(in[i], data))
-			continue;
-
-		if (!r || r->pkt.timestamp > in[i]->pkt.timestamp)
-			r = in[i];
-	}
-
-	if (!r)
-		return;
-
-	copy_reg(out, r);
 }
 
 struct sel_helper {
@@ -165,18 +135,8 @@ static stat node2d_clock(struct node2d *n)
 	return OK;
 }
 
-static stat reg_busy(struct reg *r, struct packet pkt)
-{
-	bool busy = r->busy;
-	if (!busy) {
-		r->pkt = pkt;
-		r->busy = true;
-	}
-
-	return busy ? EBUSY : OK;
-}
-
-static stat node2d_receive(struct node2d *n, struct component *from, struct packet pkt)
+static stat node2d_receive(struct node2d *n, struct component *from,
+                           struct packet pkt)
 {
 	for (int i = 0; i < n->elems + 4; ++i) {
 		if (from != n->ports[i])
@@ -185,7 +145,7 @@ static stat node2d_receive(struct node2d *n, struct component *from, struct pack
 		if (i < n->elems)
 			pkt.timestamp = n->timestamp;
 
-		return reg_busy(&n->in[i], pkt);
+		return place_reg(&n->in[i], pkt);
 	}
 
 	abort();
@@ -200,25 +160,23 @@ struct component *create_mesh_node2d(uint8_t x, uint8_t y, uint16_t elems)
 
 	n->in = calloc(elems + 4, sizeof(struct reg));
 	if (!n->in) {
-		free(n);
+		node2d_destroy(n);
 		return NULL;
 	}
 
 	n->out = calloc(elems + 4, sizeof(struct reg));
 	if (!n->out) {
-		free(n->in);
-		free(n);
+		node2d_destroy(n);
 		return NULL;
 	}
 
 	n->ports = calloc(elems + 4, sizeof(struct component *));
 	if (!n->ports) {
-		free(n->out);
-		free(n->in);
-		free(n);
+		node2d_destroy(n);
 		return NULL;
 	}
 
+	n->component.destroy = (destroy_callback)node2d_destroy;
 	n->component.receive = (receive_callback)node2d_receive;
 	n->component.clock = (clock_callback)node2d_clock;
 	n->elems = elems;
@@ -227,7 +185,8 @@ struct component *create_mesh_node2d(uint8_t x, uint8_t y, uint16_t elems)
 	return (struct component *)n;
 }
 
-stat mesh_node2d_connect(struct component *c, struct component *e, uint16_t elem)
+stat mesh_node2d_connect(struct component *c, struct component *e,
+                         uint16_t elem)
 {
 	struct node2d *n = (struct node2d *)c;
 	if (elem >= n->elems)

@@ -48,7 +48,7 @@ do_work:
 	*control = next_idx(x, y, X, Y);
 
 	if (x == X - 1 && y == Y - 1)
-		asm("ebreak");
+		asm ("ebreak");
 
 	/* otherwise just loop */
 	while (1) {}
