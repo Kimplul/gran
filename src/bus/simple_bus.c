@@ -3,7 +3,6 @@
 #include <stdbool.h>
 
 #include <gran/bus/simple_bus.h>
-#include <gran/vec.h>
 
 struct bus_region {
 	uint64_t addr;
@@ -11,9 +10,13 @@ struct bus_region {
 	struct component *component;
 };
 
+#define VEC_NAME regions
+#define VEC_TYPE struct bus_region
+#include <conts/vec.h>
+
 struct simple_bus {
 	struct component component;
-	struct vec regions;
+	struct regions regions;
 
 	struct component *send;
 	struct packet pkt;
@@ -22,8 +25,7 @@ struct simple_bus {
 
 static struct bus_region *find_bus_region(struct simple_bus *bus, uint64_t addr)
 {
-	foreach_vec(i, bus->regions) {
-		struct bus_region *r = vec_at(&bus->regions, i);
+	foreach(regions, r, &bus->regions) {
 		if (addr >= r->addr && addr < (r->addr + r->size))
 			return r;
 	}
@@ -70,7 +72,7 @@ static stat simple_bus_receive(struct simple_bus *bus, struct component *from, s
 
 static void simple_bus_destroy(struct simple_bus *bus)
 {
-	vec_destroy(&bus->regions);
+	regions_destroy(&bus->regions);
 	free(bus);
 }
 
@@ -84,7 +86,7 @@ struct component *create_simple_bus()
 	bus->component.clock = (clock_callback)simple_bus_clock;
 
 	bus->component.destroy = (destroy_callback)simple_bus_destroy;
-	bus->regions = vec_create(sizeof(struct bus_region));
+	bus->regions = regions_create(0);
 
 	return (struct component *)bus;
 }
@@ -112,6 +114,6 @@ stat simple_bus_add(struct component *bus, struct component *component,
 		.size = size
 	};
 
-	vect_append(struct bus_region, b->regions, &new);
+	regions_append(&b->regions, new);
 	return OK;
 }

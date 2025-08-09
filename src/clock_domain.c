@@ -12,10 +12,13 @@
 #include <assert.h>
 
 #include <gran/clock_domain.h>
-#include <gran/vec.h>
+
+#define VEC_NAME components
+#define VEC_TYPE struct component *
+#include <conts/vec.h>
 
 struct clock_domain {
-	struct vec components;
+	struct components components;
 	struct clock_time time;
 	tick period;
 
@@ -39,23 +42,24 @@ struct clock_domain *create_clock_domain(tick period)
 		return NULL;
 
 	clk->period = period;
-	clk->components = vec_create(sizeof(struct component *));
+	clk->components = components_create(0);
 
 	return clk;
 }
 
 void destroy_clock_domain(struct clock_domain *clk)
 {
-	for (size_t i = 0; i < vec_len(&clk->components); ++i)
-		destroy(vect_at(struct component *, clk->components, i));
+	foreach(components, c, &clk->components) {
+		destroy(*c);
+	}
 
-	vec_destroy(&clk->components);
+	components_destroy(&clk->components);
 	free(clk);
 }
 
 stat clock_domain_add(struct clock_domain *clk, struct component *component)
 {
-	vect_append(struct component *, clk->components, &component);
+	components_append(&clk->components, component);
 	return OK;
 }
 
@@ -69,9 +73,8 @@ static void clocked_component_tick(struct clock_domain *clk,
 
 stat clock_domain_tick(struct clock_domain *clk)
 {
-	for (size_t i = 0; i < vec_len(&clk->components); ++i) {
-		clocked_component_tick(clk,
-				vect_at(struct component *, clk->components, i));
+	foreach(components, c, &clk->components) {
+		clocked_component_tick(clk, *c);
 	}
 
 	advance_clock(clk);
