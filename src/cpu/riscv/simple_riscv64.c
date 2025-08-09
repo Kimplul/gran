@@ -299,9 +299,9 @@ static stat op(struct simple_riscv64 *cpu, union rv_insn insn)
 
 #define JTYPE_IMM(insn)                        \
 	EXTEND_IMM20((insn.jtype.imm3 << 20)   \
-	             | (insn.jtype.imm2 << 1)  \
-	             | (insn.jtype.imm1 << 11) \
-	             | (insn.jtype.imm0 << 12))
+		     | (insn.jtype.imm2 << 1)  \
+		     | (insn.jtype.imm1 << 11) \
+		     | (insn.jtype.imm0 << 12))
 
 static stat jal(struct simple_riscv64 *cpu, union rv_insn insn)
 {
@@ -322,9 +322,9 @@ static stat jalr(struct simple_riscv64 *cpu, union rv_insn insn)
 
 #define BTYPE_IMM(insn)                       \
 	EXTEND_IMM12((insn.btype.imm3 << 12)  \
-	             | (insn.btype.imm2 << 5) \
-	             | (insn.btype.imm1 << 1) \
-	             | (insn.btype.imm0 << 11))
+		     | (insn.btype.imm2 << 5) \
+		     | (insn.btype.imm1 << 1) \
+		     | (insn.btype.imm0 << 11))
 
 static stat branch(struct simple_riscv64 *cpu, union rv_insn insn)
 {
@@ -418,10 +418,10 @@ static stat load(struct simple_riscv64 *cpu, union rv_insn insn)
 	}
 
 	struct packet pkt = create_packet(cpu->rcv,
-			addr,
-			size,
-			NULL,
-			PACKET_READ);
+	                                  addr,
+	                                  size,
+	                                  NULL,
+	                                  PACKET_READ);
 
 	cpu->dls = (struct ldst){pkt, LDST_SENT, insn.itype.rd, u};
 	stat ret = SEND(cpu, cpu->dmem, pkt);
@@ -436,7 +436,7 @@ static stat load(struct simple_riscv64 *cpu, union rv_insn insn)
 
 #define STYPE_IMM(insn)                     \
 	EXTEND_IMM12((insn.stype.imm1 << 5) \
-	             | (insn.stype.imm0))
+		     | (insn.stype.imm0))
 
 static stat store(struct simple_riscv64 *cpu, union rv_insn insn)
 {
@@ -461,7 +461,8 @@ static stat store(struct simple_riscv64 *cpu, union rv_insn insn)
 		return ENOSUCH;
 	}
 
-	struct packet pkt = create_packet(cpu->rcv, addr, size, &src, PACKET_WRITE);
+	struct packet pkt = create_packet(cpu->rcv, addr, size, &src,
+	                                  PACKET_WRITE);
 	cpu->dls = (struct ldst){pkt, LDST_SENT, 0, false};
 	stat ret = SEND(cpu, cpu->dmem, pkt);
 	if (ret == EBUSY) {
@@ -527,7 +528,8 @@ static uint32_t finalize_ils(struct simple_riscv64 *cpu)
 	return packet_convu32(&cpu->ils.pkt);
 }
 
-static stat simple_riscv64_receive(struct simple_riscv64 *cpu, struct component *from, struct packet pkt)
+static stat simple_riscv64_receive(struct simple_riscv64 *cpu,
+                                   struct component *from, struct packet pkt)
 {
 	(void)from;
 
@@ -661,10 +663,10 @@ static stat simple_riscv64_clock(struct simple_riscv64 *cpu)
 
 	if (cpu->ils.state == LDST_IDLE) {
 		cpu->ils.pkt = create_packet(cpu->rcv + 64,
-						cpu->pc,
-						sizeof(uint32_t),
-						NULL,
-						PACKET_READ);
+		                             cpu->pc,
+		                             sizeof(uint32_t),
+		                             NULL,
+		                             PACKET_READ);
 		cpu->ils.state = LDST_BLOCKED;
 	}
 
@@ -701,10 +703,10 @@ struct component *create_simple_riscv64(uint64_t rcv, uint64_t start_pc,
 	/* fetch new instruction at start */
 	new->ils.state = LDST_BLOCKED;
 	new->ils.pkt = create_packet(new->rcv + 64,
-					new->pc,
-					sizeof(uint32_t),
-					NULL,
-					PACKET_READ);
+	                             new->pc,
+	                             sizeof(uint32_t),
+	                             NULL,
+	                             PACKET_READ);
 
 	return (struct component *)new;
 }

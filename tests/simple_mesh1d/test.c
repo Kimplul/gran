@@ -2,7 +2,7 @@
 
 __attribute__((always_inline))
 static inline uint64_t mesh1d_addr(uint16_t cluster, uint16_t elem,
-                                         uint32_t off)
+                                   uint32_t off)
 {
 	return ((uint64_t)cluster << 48) | ((uint64_t)elem << 32) | off;
 }

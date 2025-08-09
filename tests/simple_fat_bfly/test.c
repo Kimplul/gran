@@ -45,7 +45,7 @@ do_work:
 	*control = x + 1;
 
 	if (x == X - 1)
-		asm("ebreak");
+		asm ("ebreak");
 
 	/* otherwise just loop */
 	while (1) {}

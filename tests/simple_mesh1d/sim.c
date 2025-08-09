@@ -26,7 +26,9 @@ static stat build_node1d(struct clock_domain *clk, uint16_t x, uint16_t y)
 			                build_tests_simple_mesh1d_test_bin);
 
 			uint64_t rcv = mesh1d_addr(i, j, 0);
-			struct component *rv64 = create_simple_riscv64(rcv, 0, imem, node);
+			struct component *rv64 = create_simple_riscv64(rcv, 0,
+			                                               imem, node);
+
 			simple_riscv64_set_reg(rv64, 10, i); /* a0 */
 			simple_riscv64_set_reg(rv64, 11, j); /* a1 */
 			simple_riscv64_set_reg(rv64, 12, x); /* a2 */

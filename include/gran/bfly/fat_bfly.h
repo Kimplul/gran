@@ -4,7 +4,8 @@
 #include <gran/component.h>
 
 struct component *create_fat_bfly(uint32_t elems);
-stat fat_bfly_connect(struct component *bfly, struct component *component, uint32_t elem);
+stat fat_bfly_connect(struct component *bfly, struct component *component,
+                      uint32_t elem);
 
 static inline void addr_fat_bfly(uint64_t addr, uint32_t *elem, uint32_t *off)
 {

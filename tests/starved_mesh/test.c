@@ -3,7 +3,8 @@
 
 void _start(unsigned short x, unsigned short y)
 {
-	volatile unsigned long *counter = (unsigned long *)((unsigned long)1 << 48);
+	volatile unsigned long *counter = (unsigned long *)((unsigned long)1 <<
+	                                                    48);
 	volatile char *uart = (char *)4096;
 
 	/* very hacky, not recommended but good enough for testing */

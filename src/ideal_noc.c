@@ -1,10 +1,5 @@
 #include <gran/ideal_noc.h>
 
-struct reg {
-	struct packet pkt;
-	bool busy;
-};
-
 struct noc {
 	struct component component;
 	uint32_t elems;
@@ -17,7 +12,8 @@ struct noc {
 	struct component **lower; /* countedby[elems] */
 };
 
-static stat ideal_noc_receive(struct noc *n, struct component *from, struct packet pkt)
+static stat ideal_noc_receive(struct noc *n, struct component *from,
+                              struct packet pkt)
 {
 	(void)from; /* unused */
 	uint32_t elem;
@@ -86,7 +82,8 @@ static void ideal_noc_destroy(struct noc *n)
 	free(n);
 }
 
-stat ideal_noc_connect(struct component *node, struct component *component, uint32_t elem)
+stat ideal_noc_connect(struct component *node, struct component *component,
+                       uint32_t elem)
 {
 	struct noc *n = (struct noc *)node;
 	assert(elem < n->elems);
@@ -114,7 +111,8 @@ struct component *create_ideal_noc(uint32_t elems, size_t latency)
 		return NULL;
 	}
 
-	n->lower = (struct component **)calloc(elems, sizeof(struct component *));
+	n->lower = (struct component **)calloc(elems,
+	                                       sizeof(struct component *));
 	if (!n->lower) {
 		free(n->out);
 		free(n->in);

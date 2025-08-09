@@ -47,7 +47,8 @@ static stat simple_bus_clock(struct simple_bus *bus)
 	return OK;
 }
 
-static stat simple_bus_receive(struct simple_bus *bus, struct component *from, struct packet pkt)
+static stat simple_bus_receive(struct simple_bus *bus, struct component *from,
+                               struct packet pkt)
 {
 	if (bus->busy)
 		return EBUSY;

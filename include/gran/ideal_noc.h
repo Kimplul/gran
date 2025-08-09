@@ -18,7 +18,8 @@
 #include <gran/component.h>
 
 struct component *create_ideal_noc(uint32_t elems, size_t latency);
-stat ideal_noc_connect(struct component *noc, struct component *component, uint32_t elem);
+stat ideal_noc_connect(struct component *noc, struct component *component,
+                       uint32_t elem);
 
 static inline void addr_ideal_noc(uint64_t addr, uint32_t *elem, uint32_t *off)
 {

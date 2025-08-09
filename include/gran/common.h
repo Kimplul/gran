@@ -55,7 +55,7 @@ stat copy_reg(struct reg *r, struct reg *s);
  * should be moved to \p out. If there are multiple available registers, oldest
  * one is selected. NULL entries in \p in are tolerated. */
 void propagate(struct reg *out,
-		size_t count, struct reg *in[static count],
-		bool (*sel)(struct reg *r, void *data), void *data);
+               size_t count, struct reg *in[static count],
+               bool (*sel)(struct reg *r, void *data), void *data);
 
 #endif /* GRAN_COMMON_H */

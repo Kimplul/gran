@@ -31,7 +31,8 @@ static stat simple_mem_clock(struct simple_mem *mem)
 	return OK;
 }
 
-static stat simple_mem_receive(struct simple_mem *mem, struct component *from, struct packet pkt)
+static stat simple_mem_receive(struct simple_mem *mem, struct component *from,
+                               struct packet pkt)
 {
 	if (mem->busy)
 		return EBUSY;

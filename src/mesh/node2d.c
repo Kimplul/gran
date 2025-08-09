@@ -126,7 +126,8 @@ static stat node2d_clock(struct node2d *n)
 	propagate(&south_out(n), 4, south, south_sel, &helper);
 	propagate(&west_out(n),  4, west,  west_sel,  &helper);
 
-	struct reg *all[] = {r, &north_in(n), &east_in(n), &south_in(n), &west_in(n)};
+	struct reg *all[] = {r, &north_in(n), &east_in(n), &south_in(n),
+		             &west_in(n)};
 	for (int i = 0; i < n->elems; ++i) {
 		helper.elem = i;
 		propagate(&n->out[i], 5, all, elem_sel, &helper);

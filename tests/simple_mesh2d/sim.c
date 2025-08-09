@@ -60,36 +60,36 @@ static stat build_mesh(struct clock_domain *clk, uint16_t x, uint16_t y)
 	assert(pes);
 
 	for (size_t i = 0; i < x; ++i)
-		for (size_t j = 0; j < y; ++j) {
-			struct component *node = create_mesh_node2d(i, j, 1);
-			clock_domain_add(clk, node);
-			mesh[idx_1d(i, j, x, y)] = node;
+	for (size_t j = 0; j < y; ++j) {
+		struct component *node = create_mesh_node2d(i, j, 1);
+		clock_domain_add(clk, node);
+		mesh[idx_1d(i, j, x, y)] = node;
 
-			if (i == 0 && j == 0)
-				continue;
+		if (i == 0 && j == 0)
+			continue;
 
-			if (i == 0 && j == 1)
-				continue;
+		if (i == 0 && j == 1)
+			continue;
 
-			struct component *imem = create_simple_mem(4096);
-			init_simple_mem(imem, 0,
-			                build_tests_simple_mesh2d_test_bin_len,
-			                build_tests_simple_mesh2d_test_bin);
+		struct component *imem = create_simple_mem(4096);
+		init_simple_mem(imem, 0,
+				build_tests_simple_mesh2d_test_bin_len,
+				build_tests_simple_mesh2d_test_bin);
 
-			uint64_t rcv = mesh2d_addr(i, j, 0, 0);
-			struct component *rv64 = create_simple_riscv64(rcv, 0,
-			                                               imem,
-			                                               node);
-			simple_riscv64_set_reg(rv64, 10, i); /* a0 */
-			simple_riscv64_set_reg(rv64, 11, j); /* a1 */
-			simple_riscv64_set_reg(rv64, 12, x); /* a3 */
-			simple_riscv64_set_reg(rv64, 13, y); /* a4 */
+		uint64_t rcv = mesh2d_addr(i, j, 0, 0);
+		struct component *rv64 = create_simple_riscv64(rcv, 0,
+							       imem, node);
 
-			clock_domain_add(clk, rv64);
-			clock_domain_add(clk, imem);
+		simple_riscv64_set_reg(rv64, 10, i); /* a0 */
+		simple_riscv64_set_reg(rv64, 11, j); /* a1 */
+		simple_riscv64_set_reg(rv64, 12, x); /* a3 */
+		simple_riscv64_set_reg(rv64, 13, y); /* a4 */
 
-			pes[idx_1d(i, j, x, y)] = rv64;
-		}
+		clock_domain_add(clk, rv64);
+		clock_domain_add(clk, imem);
+
+		pes[idx_1d(i, j, x, y)] = rv64;
+	}
 
 	struct component *uart = create_simple_uart();
 	clock_domain_add(clk, uart);

@@ -23,8 +23,8 @@ stat copy_reg(struct reg *r, struct reg *s)
 }
 
 void propagate(struct reg *out,
-                      size_t count, struct reg *in[static count],
-                      bool (*sel)(struct reg *r, void *data), void *data)
+               size_t count, struct reg *in[static count],
+               bool (*sel)(struct reg *r, void *data), void *data)
 {
 	struct reg *r = NULL;
 	for (size_t i = 0; i < count; ++i) {

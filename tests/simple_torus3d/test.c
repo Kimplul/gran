@@ -6,7 +6,8 @@ static inline void print_int8(volatile char *uart, unsigned x)
 }
 
 __attribute__((always_inline))
-static inline void print_addr(volatile char *uart, unsigned x, unsigned y, unsigned z)
+static inline void print_addr(volatile char *uart, unsigned x, unsigned y,
+                              unsigned z)
 {
 	*uart = '(';
 	print_int8(uart, x);
@@ -27,7 +28,8 @@ static inline unsigned wrap(unsigned x, unsigned X)
 }
 
 __attribute__((always_inline))
-static inline unsigned next_idx(unsigned x, unsigned y, unsigned z, unsigned X, unsigned Y, unsigned Z)
+static inline unsigned next_idx(unsigned x, unsigned y, unsigned z, unsigned X,
+                                unsigned Y, unsigned Z)
 {
 	unsigned zi = wrap(z, Z);
 	unsigned yi = zi < z ? wrap(y, Y) : y;
@@ -36,7 +38,8 @@ static inline unsigned next_idx(unsigned x, unsigned y, unsigned z, unsigned X, 
 	return (xi << 16) | (yi << 8) | zi;
 }
 
-void _start(unsigned x, unsigned y, unsigned z, unsigned X, unsigned Y, unsigned Z)
+void _start(unsigned x, unsigned y, unsigned z, unsigned X, unsigned Y,
+            unsigned Z)
 {
 	volatile char *uart = (char *)4096;
 	/* x = 1ULL << 32, y = 1ULL << 40, z = 1ULL << 48 I guess */
@@ -54,7 +57,7 @@ do_work:
 	*control = next_idx(x, y, z, X, Y, Z);
 
 	if (x == X - 1 && y == Y - 1 && z == Z - 1)
-		asm("ebreak");
+		asm ("ebreak");
 
 	/* otherwise just loop */
 	while (1) {}

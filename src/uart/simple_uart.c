@@ -22,7 +22,8 @@ static stat simple_uart_clock(struct simple_uart *uart)
 	return OK;
 }
 
-static stat simple_uart_receive(struct simple_uart *uart, struct component *from, struct packet pkt)
+static stat simple_uart_receive(struct simple_uart *uart,
+                                struct component *from, struct packet pkt)
 {
 	if (uart->busy)
 		return EBUSY;

@@ -21,7 +21,8 @@ struct traffic_gen {
 	size_t counter;
 };
 
-static stat traffic_gen_receive(struct traffic_gen *tg, struct component *from, struct packet pkt)
+static stat traffic_gen_receive(struct traffic_gen *tg, struct component *from,
+                                struct packet pkt)
 {
 	(void)from;
 	tg->pkt = pkt;
@@ -37,7 +38,8 @@ static stat traffic_gen_clock(struct traffic_gen *tg)
 	switch (tg->counter) {
 	case 0:
 		c = 13;
-		tg->pkt = create_packet(tg->rcv, tg->addr, sizeof(c), &c, PACKET_WRITE);
+		tg->pkt = create_packet(tg->rcv, tg->addr, sizeof(c), &c,
+		                        PACKET_WRITE);
 		assert(SEND(tg, tg->stress, tg->pkt) == OK);
 		tg->counter++;
 		break;
@@ -51,7 +53,8 @@ static stat traffic_gen_clock(struct traffic_gen *tg)
 		break;
 
 	case 2:
-		tg->pkt = create_packet(0, tg->addr, sizeof(c), NULL, PACKET_READ);
+		tg->pkt = create_packet(0, tg->addr, sizeof(c), NULL,
+		                        PACKET_READ);
 		assert(SEND(tg, tg->stress, tg->pkt) == OK);
 		tg->counter++;
 		break;
@@ -75,7 +78,8 @@ static stat traffic_gen_clock(struct traffic_gen *tg)
 	return OK;
 }
 
-struct component *create_traffic_gen(struct component *stress, uintptr_t start, size_t size)
+struct component *create_traffic_gen(struct component *stress, uintptr_t start,
+                                     size_t size)
 {
 	struct traffic_gen *new = calloc(1, sizeof(struct traffic_gen));
 	if (!new)

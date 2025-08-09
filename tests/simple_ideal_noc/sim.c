@@ -24,11 +24,13 @@ static stat build_ideal_noc(struct clock_domain *clk, uint32_t x)
 
 		struct component *imem = create_simple_mem(4096);
 		init_simple_mem(imem, 0,
-				build_tests_simple_ideal_noc_test_bin_len,
-				build_tests_simple_ideal_noc_test_bin);
+		                build_tests_simple_ideal_noc_test_bin_len,
+		                build_tests_simple_ideal_noc_test_bin);
 
 		uint64_t rcv = ideal_noc_addr(i, 0);
-		struct component *rv64 = create_simple_riscv64(rcv, 0, imem, noc);
+		struct component *rv64 = create_simple_riscv64(rcv, 0,
+				                               imem, noc);
+
 		simple_riscv64_set_reg(rv64, 10, i); /* a0 */
 		simple_riscv64_set_reg(rv64, 11, x); /* a1 */
 

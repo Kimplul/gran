@@ -15,7 +15,8 @@
 
 struct component;
 
-typedef stat (*receive_callback)(struct component *to, struct component *from, struct packet pkt);
+typedef stat (*receive_callback)(struct component *to, struct component *from,
+                                 struct packet pkt);
 typedef stat (*clock_callback)(struct component *);
 typedef stat (*stat_callback)(struct component *, FILE *);
 typedef stat (*dts_callback)(struct component *, FILE *);
@@ -34,7 +35,8 @@ struct component {
 	destroy_callback destroy;
 };
 
-static inline stat send(struct component *from, struct component *to, struct packet pkt)
+static inline stat send(struct component *from, struct component *to,
+                        struct packet pkt)
 {
 	assert(to && from);
 	if (!to->receive) {

@@ -112,7 +112,8 @@ static bool elem_sel(struct reg *r, void *data)
 	uint8_t x = 0, y = 0, z = 0, elem = 0;
 	struct sel_helper *helper = data;
 	addr_mesh3d(r->pkt.to, &x, &y, &z, &elem, NULL);
-	return x == helper->x && y == helper->y && z == helper->z && elem == helper->elem;
+	return x == helper->x && y == helper->y && z == helper->z &&
+	       elem == helper->elem;
 }
 
 static stat node3d_clock(struct node3d *n)
@@ -163,7 +164,7 @@ static stat node3d_clock(struct node3d *n)
 	propagate(&down_out(n),  6, down,  down_sel,  &helper);
 
 	struct reg *all[] = {r, &north_in(n), &east_in(n), &south_in(n),
-		                &west_in(n),  &up_in(n),   &down_in(n)};
+		             &west_in(n),  &up_in(n),   &down_in(n)};
 
 	for (int i = 0; i < n->elems; ++i) {
 		helper.elem = i;
@@ -190,7 +191,8 @@ static stat node3d_receive(struct node3d *n, struct component *from,
 	return OK;
 }
 
-struct component *create_mesh_node3d(uint8_t x, uint8_t y, uint8_t z, uint8_t elems)
+struct component *create_mesh_node3d(uint8_t x, uint8_t y, uint8_t z,
+                                     uint8_t elems)
 {
 	struct node3d *n = calloc(1, sizeof(struct node3d));
 	if (!n)
@@ -225,7 +227,7 @@ struct component *create_mesh_node3d(uint8_t x, uint8_t y, uint8_t z, uint8_t el
 }
 
 stat mesh_node3d_connect(struct component *c, struct component *e,
-			 uint8_t elem)
+                         uint8_t elem)
 {
 	struct node3d *n = (struct node3d *)c;
 	if (elem >= n->elems)

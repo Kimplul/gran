@@ -1,12 +1,6 @@
 #include <stdlib.h>
 #include <gran/mem/ideal_alloc.h>
 
-/** @todo almost everyone has the same def for reg, should maybe make common */
-struct reg {
-	struct packet pkt;
-	bool busy;
-};
-
 struct region {
 	uint64_t start, end;
 };
@@ -69,7 +63,8 @@ static void alloc_destroy(struct alloc *a)
 	free(a);
 }
 
-static stat alloc_receive(struct alloc *a, struct component *from, struct packet pkt)
+static stat alloc_receive(struct alloc *a, struct component *from,
+                          struct packet pkt)
 {
 	(void)from; /* unused */
 	if (a->in.busy)
@@ -80,7 +75,8 @@ static stat alloc_receive(struct alloc *a, struct component *from, struct packet
 	return OK;
 }
 
-static stat alloc_resp(struct alloc *a, enum alloc_if_ret resp, uint64_t start, uint64_t end)
+static stat alloc_resp(struct alloc *a, enum alloc_if_ret resp, uint64_t start,
+                       uint64_t end)
 {
 	a->in.busy = false;
 

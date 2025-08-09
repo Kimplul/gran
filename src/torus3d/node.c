@@ -1,10 +1,5 @@
 #include <gran/torus3d/node.h>
 
-struct reg {
-	struct packet pkt;
-	bool busy;
-};
-
 struct port {
 	struct reg r[2];
 };
@@ -14,8 +9,8 @@ struct torus3d_node {
 	uint8_t x, y, z /*, w for 4D but that might be a bit overkill*/;
 
 	struct component *x_next, *y_next, *z_next,
-			 *x_prev, *y_prev, *z_prev,
-			 *child;
+	        *x_prev, *y_prev, *z_prev,
+	        *child;
 
 	struct port port_x, port_y, port_z;
 
@@ -24,7 +19,8 @@ struct torus3d_node {
 	bool prio;
 };
 
-static stat port_receive(struct torus3d_node *torus3d, struct port *port, struct reg *reg)
+static stat port_receive(struct torus3d_node *torus3d, struct port *port,
+                         struct reg *reg)
 {
 	if (!reg->busy)
 		return OK;
@@ -44,10 +40,10 @@ static stat port_receive(struct torus3d_node *torus3d, struct port *port, struct
 		return OK;
 
 	printf("(%d, %d, %d) to (%d, %d, %d) via (%d, %d, %d) c %d\n",
-			sx, sy, sz,
-			dx, dy, dz,
-			torus3d->x, torus3d->y, torus3d->z,
-			chan);
+	       sx, sy, sz,
+	       dx, dy, dz,
+	       torus3d->x, torus3d->y, torus3d->z,
+	       chan);
 
 	port->r[chan].pkt = reg->pkt;
 	port->r[chan].busy = true;
@@ -74,7 +70,9 @@ enum match {
 	NZ = (1 << 5),
 };
 
-static void maybe_route_reg(struct torus3d_node *torus3d, struct reg *reg, enum match m, uint64_t *oldest, struct packet **pkt, bool **busy)
+static void maybe_route_reg(struct torus3d_node *torus3d, struct reg *reg,
+                            enum match m, uint64_t *oldest, struct packet **pkt,
+                            bool **busy)
 {
 	if (!reg->busy)
 		return;
@@ -107,24 +105,36 @@ static void maybe_route_reg(struct torus3d_node *torus3d, struct reg *reg, enum 
 	}
 }
 
-static stat route(struct torus3d_node *torus3d, struct component *next, enum match m)
+static stat route(struct torus3d_node *torus3d, struct component *next,
+                  enum match m)
 {
 	bool prio = torus3d->prio;
 	uint64_t oldest = -1; struct packet *pkt = NULL; bool *busy = NULL;
 
 	/* prioritise current priority port */
-	maybe_route_reg(torus3d, &torus3d->port_x.r[prio], m, &oldest, &pkt, &busy);
-	maybe_route_reg(torus3d, &torus3d->port_y.r[prio], m, &oldest, &pkt, &busy);
-	maybe_route_reg(torus3d, &torus3d->port_z.r[prio], m, &oldest, &pkt, &busy);
+	maybe_route_reg(torus3d, &torus3d->port_x.r[prio], m,
+			&oldest, &pkt, &busy);
+
+	maybe_route_reg(torus3d, &torus3d->port_y.r[prio], m,
+			&oldest, &pkt, &busy);
+
+	maybe_route_reg(torus3d, &torus3d->port_z.r[prio], m,
+			&oldest, &pkt, &busy);
 
 	/* if no suitable match found, check other ports as well */
 	if (pkt == NULL) {
-		maybe_route_reg(torus3d, &torus3d->port_x.r[!prio], m, &oldest, &pkt, &busy);
-		maybe_route_reg(torus3d, &torus3d->port_y.r[!prio], m, &oldest, &pkt, &busy);
-		maybe_route_reg(torus3d, &torus3d->port_z.r[!prio], m, &oldest, &pkt, &busy);
+		maybe_route_reg(torus3d, &torus3d->port_x.r[!prio], m,
+				&oldest, &pkt, &busy);
+
+		maybe_route_reg(torus3d, &torus3d->port_y.r[!prio], m,
+				&oldest, &pkt, &busy);
+
+		maybe_route_reg(torus3d, &torus3d->port_z.r[!prio], m,
+				&oldest, &pkt, &busy);
 	}
 
-	maybe_route_reg(torus3d, &torus3d->child_in, m, &oldest, &pkt, &busy);
+	maybe_route_reg(torus3d, &torus3d->child_in, m,
+			&oldest, &pkt, &busy);
 
 	/* no suitable match */
 	if (pkt == NULL)
@@ -169,7 +179,8 @@ static stat torus3d_clock(struct torus3d_node *torus3d)
 	return OK;
 }
 
-static stat torus3d_receive(struct torus3d_node *torus3d, struct component *from, struct packet pkt)
+static stat torus3d_receive(struct torus3d_node *torus3d,
+                            struct component *from, struct packet pkt)
 {
 	if (from == torus3d->child)
 		return reg_receive(&torus3d->child_in, pkt);
@@ -202,13 +213,13 @@ struct component *create_torus3d_node(uint8_t x, uint8_t y, uint8_t z)
 }
 
 stat torus3d_node_connect(struct component *node,
-		struct component *x_in,
-		struct component *y_in,
-		struct component *z_in,
-		struct component *child,
-		struct component *x_out,
-		struct component *y_out,
-		struct component *z_out)
+                          struct component *x_in,
+                          struct component *y_in,
+                          struct component *z_in,
+                          struct component *child,
+                          struct component *x_out,
+                          struct component *y_out,
+                          struct component *z_out)
 {
 	struct torus3d_node *n = (struct torus3d_node *)node;
 	n->x_prev = x_in;

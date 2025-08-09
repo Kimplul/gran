@@ -79,13 +79,16 @@ static stat build_mesh3d(struct clock_domain *clk, uint8_t x, uint8_t y,
 		if (i == 0 && j == 0 && k == 1)
 			continue;
 
-		struct component *imem = create_simple_mem(4096);
+		struct component *imem =
+			create_simple_mem(4096);
 		init_simple_mem(imem, 0,
-				build_tests_simple_mesh3d_test_bin_len,
-				build_tests_simple_mesh3d_test_bin);
+		                build_tests_simple_mesh3d_test_bin_len,
+		                build_tests_simple_mesh3d_test_bin);
 
 		uint64_t rcv = mesh3d_addr(i, j, k, 0, 0);
-		struct component *rv64 = create_simple_riscv64(rcv, 0, imem, node);
+		struct component *rv64 = create_simple_riscv64(rcv, 0,
+					                       imem, node);
+
 		simple_riscv64_set_reg(rv64, 10, i); /* a0 */
 		simple_riscv64_set_reg(rv64, 11, j); /* a1 */
 		simple_riscv64_set_reg(rv64, 12, k); /* a2 */
@@ -116,7 +119,9 @@ static stat build_mesh3d(struct clock_domain *clk, uint8_t x, uint8_t y,
 		if (i == 0 && j == 0 && k == 1)
 			continue;
 
-		connect_mesh3d(mesh, pes[idx_1d(i, j, k, x, y, z)], i, j, k, x, y, z);
+		connect_mesh3d(mesh,
+			       pes[idx_1d(i, j, k, x, y, z)], i,
+			       j, k, x, y, z);
 	}
 
 	free(mesh);

@@ -1,11 +1,6 @@
 #include <gran/if/alloc.h>
 #include "testbench.h"
 
-struct reg {
-	struct packet pkt;
-	bool busy;
-};
-
 struct tb {
 	struct component component;
 	struct component *dut;
@@ -35,7 +30,8 @@ static stat tb_clock(struct tb *tb)
 	switch (tb->state) {
 	case ADD_REGION: {
 		struct alloc_if_new n = {.space = 0, .start = 0, .end = 10};
-		struct packet pkt = create_packet(0, ALLOC_IF_NEW, sizeof(n), &n, PACKET_WRITE);
+		struct packet pkt = create_packet(0, ALLOC_IF_NEW, sizeof(n),
+		                                  &n, PACKET_WRITE);
 		assert(SEND(tb, tb->dut, pkt) == OK);
 		tb->state = QUERY_EXISTING;
 		break;
@@ -49,7 +45,8 @@ static stat tb_clock(struct tb *tb)
 		assert(r->r == ALLOC_IF_OK);
 
 		struct alloc_if_q q = {.space = 0, .addr = 5};
-		struct packet pkt = create_packet(0, ALLOC_IF_Q, sizeof(q), &q, PACKET_WRITE);
+		struct packet pkt = create_packet(0, ALLOC_IF_Q, sizeof(q), &q,
+		                                  PACKET_WRITE);
 		assert(SEND(tb, tb->dut, pkt) == OK);
 		tb->state = REMOVE_REGION;
 		tb->in.busy = false;
@@ -66,7 +63,8 @@ static stat tb_clock(struct tb *tb)
 		assert(r->end == 10);
 
 		struct alloc_if_rm rm = {.space = 0, .start = 0, .end = 10};
-		struct packet pkt = create_packet(0, ALLOC_IF_RM, sizeof(rm), &rm, PACKET_WRITE);
+		struct packet pkt = create_packet(0, ALLOC_IF_RM, sizeof(rm),
+		                                  &rm, PACKET_WRITE);
 		assert(SEND(tb, tb->dut, pkt) == OK);
 		tb->state = QUERY_NONEXISTING;
 		tb->in.busy = false;
@@ -81,7 +79,8 @@ static stat tb_clock(struct tb *tb)
 		assert(r->r == ALLOC_IF_OK);
 
 		struct alloc_if_q q = {.space = 0, .addr = 5};
-		struct packet pkt = create_packet(0, ALLOC_IF_Q, sizeof(q), &q, PACKET_WRITE);
+		struct packet pkt = create_packet(0, ALLOC_IF_Q, sizeof(q), &q,
+		                                  PACKET_WRITE);
 		assert(SEND(tb, tb->dut, pkt) == OK);
 		tb->state = FINAL;
 		tb->in.busy = false;

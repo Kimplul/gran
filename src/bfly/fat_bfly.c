@@ -30,11 +30,6 @@
  * in this version so I'm sticking with this for now at least.
  */
 
-struct reg {
-	struct packet pkt;
-	bool busy;
-};
-
 struct fat_node {
 	/* parent in tree */
 	struct fat_node *up;
@@ -57,7 +52,8 @@ struct fat_bfly {
 };
 
 /* left selects which input bank to use and idx which index within it */
-static stat node_receive(struct fat_node *node, struct packet pkt, size_t idx, bool left)
+static stat node_receive(struct fat_node *node, struct packet pkt, size_t idx,
+                         bool left)
 {
 	struct reg *rs = left ? node->left : node->right;
 	if (rs[idx].busy)
@@ -71,8 +67,7 @@ static stat node_receive(struct fat_node *node, struct packet pkt, size_t idx, b
 static stat node_clock(struct fat_node *node, size_t count, size_t height)
 {
 	/* can't go higher than the top layer */
-	if (node->up)
-	for (size_t i = 0; i < count; ++i) {
+	if (node->up) for (size_t i = 0; i < count; ++i) {
 		if (!node->out[i].busy)
 			continue;
 
@@ -182,7 +177,8 @@ static stat fat_bfly_clock(struct fat_bfly *bfly)
 	return OK;
 }
 
-static stat fat_bfly_receive(struct fat_bfly *bfly, struct component *from, struct packet pkt)
+static stat fat_bfly_receive(struct fat_bfly *bfly, struct component *from,
+                             struct packet pkt)
 {
 	uint32_t elem;
 	addr_fat_bfly(pkt.from, &elem, NULL);
@@ -245,10 +241,18 @@ struct component *create_fat_bfly(uint32_t elems)
 
 		for (size_t j = 0; j < count; ++j) {
 			/* j / 2 since there are always twice as few nodes per layer */
-			bfly->layer[i][j].up = i == 0 ? NULL : &bfly->layer[i - 1][j / 2];
-			bfly->layer[i][j].left = calloc(elems / count, sizeof(struct reg));
-			bfly->layer[i][j].right = calloc(elems / count, sizeof(struct reg));
-			bfly->layer[i][j].out = calloc(2 * elems / count, sizeof(struct reg));
+			bfly->layer[i][j].up = i == 0
+					     ? NULL
+					     : &bfly->layer[i - 1][j / 2];
+
+			bfly->layer[i][j].left = calloc(elems / count,
+			                                sizeof(struct reg));
+
+			bfly->layer[i][j].right = calloc(elems / count,
+			                                 sizeof(struct reg));
+
+			bfly->layer[i][j].out = calloc(2 * elems / count,
+			                               sizeof(struct reg));
 			assert(bfly->layer[i][j].left);
 			assert(bfly->layer[i][j].right);
 			assert(bfly->layer[i][j].out);
@@ -261,7 +265,8 @@ struct component *create_fat_bfly(uint32_t elems)
 	return (struct component *)bfly;
 }
 
-stat fat_bfly_connect(struct component *bfly, struct component *component, uint32_t elem)
+stat fat_bfly_connect(struct component *bfly, struct component *component,
+                      uint32_t elem)
 {
 	struct fat_bfly *b = (struct fat_bfly *)bfly;
 	assert(elem < b->elems);

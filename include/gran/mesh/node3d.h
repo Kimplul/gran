@@ -4,9 +4,11 @@
 #include <gran/component.h>
 #include <stdint.h>
 
-struct component *create_mesh_node3d(uint8_t x, uint8_t y, uint8_t z, uint8_t elem);
+struct component *create_mesh_node3d(uint8_t x, uint8_t y, uint8_t z,
+                                     uint8_t elem);
 
-stat mesh_node3d_connect(struct component *c, struct component *e, uint8_t elem);
+stat mesh_node3d_connect(struct component *c, struct component *e,
+                         uint8_t elem);
 stat mesh_node3d_connect_north(struct component *c, struct component *e);
 stat mesh_node3d_connect_south(struct component *c, struct component *e);
 stat mesh_node3d_connect_east(struct component *c, struct component *e);
@@ -14,7 +16,8 @@ stat mesh_node3d_connect_west(struct component *c, struct component *e);
 stat mesh_node3d_connect_down(struct component *c, struct component *e);
 stat mesh_node3d_connect_up(struct component *c, struct component *e);
 
-static inline uint64_t mesh3d_addr(uint8_t x, uint8_t y, uint8_t z, uint8_t elem,
+static inline uint64_t mesh3d_addr(uint8_t x, uint8_t y, uint8_t z,
+                                   uint8_t elem,
                                    uint32_t off)
 {
 	return off
@@ -25,7 +28,8 @@ static inline uint64_t mesh3d_addr(uint8_t x, uint8_t y, uint8_t z, uint8_t elem
 	;
 }
 
-static inline void addr_mesh3d(uint64_t addr, uint8_t *x, uint8_t *y, uint8_t *z, uint8_t *elem, uint32_t *off)
+static inline void addr_mesh3d(uint64_t addr, uint8_t *x, uint8_t *y,
+                               uint8_t *z, uint8_t *elem, uint32_t *off)
 {
 	if (off) *off = addr & 0xffffffff;
 	if (elem) *elem = (addr >> 32) & 0xff;

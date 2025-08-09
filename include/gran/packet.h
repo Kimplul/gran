@@ -59,7 +59,10 @@ static inline uint64_t packet_align(uint64_t addr)
 static inline uint64_t packet_mask(uint64_t addr, uint64_t size)
 {
 	assert(size <= 64);
-	uint64_t mask = size == 64 ? ((uint64_t)-1) : (((uint64_t)1 << size) - 1);
+	uint64_t mask = size == 64
+			? ((uint64_t)-1)
+			: (((uint64_t)1 << size) - 1);
+
 	uint64_t aligned = packet_align(addr);
 	uint64_t diff = addr - aligned;
 
@@ -179,7 +182,9 @@ static inline uint64_t packet_convu64(struct packet *pkt)
 	return res;
 }
 
-static inline struct packet create_packet(uint64_t from, uint64_t to, uint64_t size, void *data, enum packet_flags flags)
+static inline struct packet create_packet(uint64_t from, uint64_t to,
+                                          uint64_t size, void *data,
+                                          enum packet_flags flags)
 {
 	assert(size <= 64);
 	assert(packet_align(from) == from);
