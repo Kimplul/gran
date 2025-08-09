@@ -35,7 +35,7 @@ static inline unsigned next_idx(unsigned x, unsigned y, unsigned X, unsigned Y)
 void _start(unsigned x, unsigned y, unsigned X, unsigned Y)
 {
 	volatile char *uart = (char *)4096;
-	volatile unsigned *control = (unsigned *)(1ULL << 48);
+	volatile unsigned *control = (unsigned *)(1ULL << 56);
 
 	if (x == 0 && y == 2) {
 		goto do_work;

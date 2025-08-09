@@ -4,10 +4,10 @@
 #include <gran/mem/simple_mem.h>
 #include <gran/bus/simple_bus.h>
 #include <gran/uart/simple_uart.h>
-#include <gran/mesh/node.h>
+#include <gran/mesh/node2d.h>
 #include <gran/cpu/riscv/simple_riscv64.h>
 
-#include "../build/tests/simple_mesh/test.inc"
+#include "../build/tests/simple_mesh2d/test.inc"
 
 static size_t idx_1d(int x, int y, uint8_t xw, uint8_t yw)
 {
@@ -40,12 +40,11 @@ static void connect_mesh(struct component **mesh, struct component *c,
 		uint16_t x,  uint16_t y,
 		uint16_t xw, uint16_t yw)
 {
-	mesh_node_connect(mesh_at(mesh, x, y, xw, yw),
-			mesh_at(mesh, x  , y+1, xw, yw),
-			mesh_at(mesh, x  , y-1, xw, yw),
-			mesh_at(mesh, x+1, y  , xw, yw),
-			mesh_at(mesh, x-1, y  , xw, yw),
-			c);
+	mesh_node2d_connect_north(mesh_at(mesh, x, y, xw, yw), mesh_at(mesh, x  , y+1, xw, yw));
+	mesh_node2d_connect_south(mesh_at(mesh, x, y, xw, yw), mesh_at(mesh, x  , y-1, xw, yw));
+	mesh_node2d_connect_east(mesh_at(mesh, x, y, xw, yw),  mesh_at(mesh, x+1, y  , xw, yw));
+	mesh_node2d_connect_west(mesh_at(mesh, x, y, xw, yw),  mesh_at(mesh, x-1, y  , xw, yw));
+	mesh_node2d_connect(mesh_at(mesh, x, y, xw, yw), c, 0);
 }
 
 static stat build_mesh(struct clock_domain *clk, uint16_t x, uint16_t y)
@@ -58,7 +57,7 @@ static stat build_mesh(struct clock_domain *clk, uint16_t x, uint16_t y)
 
 	for (size_t i = 0; i < x; ++i)
 	for (size_t j = 0; j < y; ++j) {
-		struct component *node = create_mesh_node(i, j);
+		struct component *node = create_mesh_node2d(i, j, 1);
 		clock_domain_add(clk, node);
 		mesh[idx_1d(i, j, x, y)] = node;
 
@@ -70,10 +69,10 @@ static stat build_mesh(struct clock_domain *clk, uint16_t x, uint16_t y)
 
 		struct component *imem = create_simple_mem(4096);
 		init_simple_mem(imem, 0,
-				build_tests_simple_mesh_test_bin_len,
-				build_tests_simple_mesh_test_bin);
+				build_tests_simple_mesh2d_test_bin_len,
+				build_tests_simple_mesh2d_test_bin);
 
-		uint64_t rcv = mesh_addr(i, j, 0);
+		uint64_t rcv = mesh2d_addr(i, j, 0, 0);
 		struct component *rv64 = create_simple_riscv64(rcv, 0, imem, node);
 		simple_riscv64_set_reg(rv64, 10, i); /* a0 */
 		simple_riscv64_set_reg(rv64, 11, j); /* a1 */

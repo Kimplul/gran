@@ -7,7 +7,7 @@
 #include <gran/mem/simple_mem.h>
 #include <gran/bus/simple_bus.h>
 #include <gran/uart/simple_uart.h>
-#include <gran/mesh/node.h>
+#include <gran/mesh/node2d.h>
 #include <gran/cpu/riscv/simple_riscv64.h>
 
 unsigned char _tmp_test_bin[] = {
@@ -63,7 +63,7 @@ static stat build_mesh(struct clock_domain *clk, uint8_t x, uint8_t y)
 
 	for (size_t i = 0; i < x; ++i)
 	for (size_t j = 0; j < y; ++j) {
-		struct component *node = create_mesh_node(i, j);
+		struct component *node = create_mesh_node2d(i, j, 1);
 		clock_domain_add(clk, node);
 		mesh[i * x + j] = node;
 
@@ -76,7 +76,7 @@ static stat build_mesh(struct clock_domain *clk, uint8_t x, uint8_t y)
 		struct component *imem = create_simple_mem(4096);
 		init_simple_mem(imem, 0, _tmp_test_bin_len, _tmp_test_bin);
 
-		uint64_t rcv = mesh_addr(i, j, 0);
+		uint64_t rcv = mesh2d_addr(i, j, 0, 0);
 		struct component *rv64 = create_simple_riscv64(rcv, 0, imem, node);
 		simple_riscv64_set_reg(rv64, 10, i); /* a0 */
 		simple_riscv64_set_reg(rv64, 11, j); /* a1 */
@@ -89,11 +89,19 @@ static stat build_mesh(struct clock_domain *clk, uint8_t x, uint8_t y)
 
 	struct component *uart = create_simple_uart();
 	clock_domain_add(clk, uart);
-	mesh_node_connect(mesh[0], NULL, mesh[x], mesh[1], NULL, uart);
+	mesh_node2d_connect_north(mesh[0], NULL);
+	mesh_node2d_connect_south(mesh[0], mesh[x]);
+	mesh_node2d_connect_east(mesh[0],  mesh[1]);
+	mesh_node2d_connect_west(mesh[0],  NULL);
+	mesh_node2d_connect(mesh[0], uart, 0);
 
 	struct component *dmem = create_simple_mem(4096);
 	clock_domain_add(clk, dmem);
-	mesh_node_connect(mesh[1], NULL, mesh[x + 1], mesh[2], mesh[0], dmem);
+	mesh_node2d_connect_north(mesh[0], NULL);
+	mesh_node2d_connect_south(mesh[0], mesh[x + 1]);
+	mesh_node2d_connect_east(mesh[0],  mesh[2]);
+	mesh_node2d_connect_west(mesh[0],  mesh[0]);
+	mesh_node2d_connect(mesh[0], dmem, 0);
 
 	for (int i = 0; i < x; ++i)
 	for (int j = 0; j < y; ++j) {
@@ -109,7 +117,11 @@ static stat build_mesh(struct clock_domain *clk, uint8_t x, uint8_t y)
 		struct component *right = get_mesh(mesh, i + 1, j    , x, y);
 		struct component *up    = get_mesh(mesh, i    , j + 1, x, y);
 		struct component *down  = get_mesh(mesh, i    , j - 1, x, y);
-		mesh_node_connect(node, left, right, up, down, lower);
+		mesh_node2d_connect_north(node, up);
+		mesh_node2d_connect_south(node, down);
+		mesh_node2d_connect_east(node,  left);
+		mesh_node2d_connect_west(node,  right);
+		mesh_node2d_connect(node, lower, 0);
 	}
 
 	free(pes);

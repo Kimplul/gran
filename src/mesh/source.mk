@@ -1,1 +1,1 @@
-SOURCES += src/mesh/node.c src/mesh/node3d.c
+SOURCES += src/mesh/node1d.c src/mesh/node2d.c src/mesh/node3d.c
