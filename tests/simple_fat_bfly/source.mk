@@ -1,18 +1,11 @@
-FAT_BFLY_TEST_OBJ	!= ./scripts/gen-deps --sources "tests/simple_fat_bfly/sim.c"
-TEST_PROGS		+= build/tests/simple_fat_bfly/sim
+SIMPLE_BAT_FLY		:= tests/simple_fat_bfly
+SIMPLE_BAT_FLY_SIM	:= $(SIMPLE_BAT_FLY)/sim.c
 
-build/tests/simple_fat_bfly/test.inc: tests/simple_fat_bfly/test.c
-	riscv64-unknown-elf-gcc -O2 -Wall -Wextra -ffreestanding -nostdlib \
-		-march=rv64i -mabi=lp64 \
-		-o build/tests/simple_fat_bfly/test \
-		tests/simple_fat_bfly/test.c
-	riscv64-unknown-elf-objcopy -Obinary \
-		build/tests/simple_fat_bfly/test \
-		build/tests/simple_fat_bfly/test.bin
-	xxd -i build/tests/simple_fat_bfly/test.bin \
-		> build/tests/simple_fat_bfly/test.inc
+TESTS += $(SIMPLE_BAT_FLY)/sim
 
-build/tests/simple_fat_bfly/sim.o: build/tests/simple_fat_bfly/test.inc
-
-build/tests/simple_fat_bfly/sim: $(FAT_BFLY_TEST_OBJ) $(OBJS)
-	$(COMPILE) $(FAT_BFLY_TEST_OBJ) $(OBJS) -o $@
+.PHONY: $(SIMPLE_BAT_FLY)/sim
+$(SIMPLE_BAT_FLY)/sim: $(SIMPLE_BAT_FLY_SIM) libgran.a
+	mkdir -p build/$(SIMPLE_BAT_FLY)
+	./scripts/gen-rv64-fw -d build -o $(SIMPLE_BAT_FLY)/test.inc $(SIMPLE_BAT_FLY)/test.c
+	$(COMPILE_TEST) $(SIMPLE_BAT_FLY_SIM) libgran.a -o build/$@
+	./scripts/gen-report -d build $@

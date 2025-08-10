@@ -1,0 +1,18 @@
+#!/bin/sh
+
+BUILD=build
+
+while getopts "d:" opt; do
+	case "$opt" in
+		d) BUILD="$OPTARG";;
+		*) echo "unregonised option -$OPTARG" >&2; exit 1;;
+	esac
+done
+
+shift $((OPTIND - 1))
+
+for p in "$@"; do
+	mkdir -p "reports/${p}"
+	timeout --foreground 30s valgrind -q --error-exitcode=1 \
+		"./${BUILD}/${p}" > "reports/${p}/log"
+done

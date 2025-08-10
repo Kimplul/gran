@@ -1,69 +1,64 @@
-DO	!= echo -n > deps.mk
+.PHONY: all
+all: setup
+	$(MAKE) -f scripts/makefile
 
-DEBUGFLAGS	!= [ $(RELEASE) ] && echo "-flto=auto -O2 -DNODEBUG" || echo "-O0 -g -DDEBUG"
-CFLAGS		= -Wall -Wextra -g
-DEPFLAGS	= -MT $@ -MMD -MP -MF $@.d
-LINTFLAGS	= -fsyntax-only
-INCLUDEFLAGS	= -Iinclude -Ideps/conts/include
-COMPILEFLAGS	=
-LINKFLAGS	=
+# this kicks all unrecognised targets to the client script.
+# note that trying to compile individual files, e.g.
+#
+#	make kernel.elf
+#
+# will not work, you would need
+#
+#	make -f scripts/makefile kernel.elf
+#
+# instead
+.DEFAULT: setup
+	$(MAKE) -f scripts/makefile $<
 
-all: gran
+.PHONY: analyze
+analyze: setup
+	CFLAGS="$$CFLAGS -fanalyzer" SKIP_ANALYZER='-fno-analyzer' $(MAKE)
 
-# default values
-CROSS_COMPILE	?=
+.PHONY: setup
+setup:
+	@echo -n > deps.mk
+	@./scripts/gen-deps -p GRAN -c COMPILE_GRAN -b gran "$(GRAN_SOURCES)"
 
-# common programs
-CC		= gcc
-
-SOURCES		:=
+CLEANUP		:= build reports deps.mk libgran.a
+CLEANUP_CMD	:=
+GRAN_SOURCES	:=
 
 include src/source.mk
 
-COMPILE		= $(CROSS_COMPILE)$(CC) $(DEBUGFLAGS)\
-		  $(CFLAGS) $(DEPFLAGS) $(COMPILEFLAGS) $(INCLUDEFLAGS)
-
-LINT		= $(COMPILE) $(LINTFLAGS)
-
-OBJS		!= ./scripts/gen-deps --sources "$(SOURCES)"
-MAIN_OBJ	!= ./scripts/gen-deps --sources "$(MAIN_SRC)"
-
-include tests/source.mk
-include deps.mk
-
-.PHONY: lint
-lint: $(OBJS:.o=.o.l)
+.PHONY: check
+check: all
+	$(MAKE) -f scripts/makefile -k check CHECK=$(CHECK)
 
 .PHONY: format
 format:
-	find src include tests -iname '*.[ch]' |\
-		xargs -n 10 -P 0 uncrustify -c uncrustify.conf --no-backup -F -
+	find src include -iname '*.[ch]' |\
+		xargs uncrustify -c uncrustify.conf --no-backup -F -
 
 .PHONY: license
 license:
-	find src include tests -iname '*.[ch]' |\
-		xargs -n 10 -P 0 ./scripts/license
+	find src include -iname '*.[ch]' |\
+		xargs ./scripts/license
 
 .PHONY: docs
 docs:
 	find src include -iname '*.[ch]' |\
-		xargs -n 10 -P 0 ./scripts/warn-undocumented
+		xargs ./scripts/warn-undocumented
 	doxygen docs/doxygen.conf
 
-.PHONY: check
-check: $(TEST_PROGS)
-	./tests/check.sh
-
-gran: $(MAIN_OBJ) $(OBJS)
-	$(COMPILE) $(MAIN_OBJ) $(OBJS) -o $@
+RM	= rm
 
 .PHONY: clean
 clean:
-	$(RM) -r build gran deps.mk
+	$(RM) -rf $(CLEANUP)
 
 .PHONY: clean_docs
 clean_docs:
-	$(RM) -r docs/output
+	$(RM) -rf docs/output
 
 .PHONY: clean_all
 clean_all: clean clean_docs

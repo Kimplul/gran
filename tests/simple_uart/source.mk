@@ -1,6 +1,8 @@
-UART_TEST_OBJ	!= ./scripts/gen-deps --sources "tests/simple_uart/sim.c"
+SIMPLE_UART	:= tests/simple_uart
+SIMPLE_UART_SIM	:= $(SIMPLE_UART)/sim.c
 
-TEST_PROGS	+= build/tests/simple_uart/sim
+TEST += $(SIMPLE_UART)/sim
 
-build/tests/simple_uart/sim: $(UART_TEST_OBJ) $(OBJS)
-	$(COMPILE) $(UART_TEST_OBJ) $(TEST_OBJS) $(OBJS) -o $@
+$(SIMPLE_UART)/sim: $(SIMPLE_UART_SIM) libgran.a
+	$(COMPILE_TEST) $(SIMPLE_UART_SIM) libran.a -o build/$@
+	./scripts/gen-report -d build $@

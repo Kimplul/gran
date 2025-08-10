@@ -41,42 +41,40 @@ static stat build_torus3d(struct clock_domain *clk, uint8_t x, uint8_t y,
 	assert(pes);
 
 	for (size_t i = 0; i < x; ++i)
-		for (size_t j = 0; j < y; ++j)
-			for (size_t k = 0; k < z; ++k) {
-				struct component *node = create_torus3d_node(i,
-				                                             j,
-				                                             k);
-				clock_domain_add(clk, node);
-				grid[idx_1d(i, j, k, x, y, z)] = node;
+	for (size_t j = 0; j < y; ++j)
+	for (size_t k = 0; k < z; ++k) {
+		struct component *node = create_torus3d_node(i, j, k);
+		clock_domain_add(clk, node);
+		grid[idx_1d(i, j, k, x, y, z)] = node;
 
-				if (i == 0 && j == 0 && k == 0)
-					continue;
+		if (i == 0 && j == 0 && k == 0)
+			continue;
 
-				if (i == 0 && j == 0 && k == 1)
-					continue;
+		if (i == 0 && j == 0 && k == 1)
+			continue;
 
-				struct component *imem =
-					create_simple_mem(4096);
-				init_simple_mem(imem, 0,
-				                build_tests_simple_torus3d_test_bin_len,
-				                build_tests_simple_torus3d_test_bin);
+		struct component *imem =
+			create_simple_mem(4096);
+		init_simple_mem(imem, 0,
+				build_tests_simple_torus3d_test_inc_bin_len,
+				build_tests_simple_torus3d_test_inc_bin);
 
-				uint64_t rcv = torus3d_addr(i, j, k, 0);
-				struct component *rv64 =
-					create_simple_riscv64(rcv, 0, imem,
-					                      node);
-				simple_riscv64_set_reg(rv64, 10, i); /* a0 */
-				simple_riscv64_set_reg(rv64, 11, j); /* a1 */
-				simple_riscv64_set_reg(rv64, 12, k); /* a2 */
-				simple_riscv64_set_reg(rv64, 13, x); /* a3 */
-				simple_riscv64_set_reg(rv64, 14, y); /* a4 */
-				simple_riscv64_set_reg(rv64, 15, z); /* a5 */
+		uint64_t rcv = torus3d_addr(i, j, k, 0);
+		struct component *rv64 =
+			create_simple_riscv64(rcv, 0, imem,
+					      node);
+		simple_riscv64_set_reg(rv64, 10, i); /* a0 */
+		simple_riscv64_set_reg(rv64, 11, j); /* a1 */
+		simple_riscv64_set_reg(rv64, 12, k); /* a2 */
+		simple_riscv64_set_reg(rv64, 13, x); /* a3 */
+		simple_riscv64_set_reg(rv64, 14, y); /* a4 */
+		simple_riscv64_set_reg(rv64, 15, z); /* a5 */
 
-				clock_domain_add(clk, rv64);
-				clock_domain_add(clk, imem);
+		clock_domain_add(clk, rv64);
+		clock_domain_add(clk, imem);
 
-				pes[idx_1d(i, j, k, x, y, z)] = rv64;
-			}
+		pes[idx_1d(i, j, k, x, y, z)] = rv64;
+	}
 
 	struct component *uart = create_simple_uart();
 	clock_domain_add(clk, uart);

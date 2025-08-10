@@ -1,19 +1,11 @@
-MESH1D_TEST_OBJ	!= ./scripts/gen-deps --sources "tests/simple_mesh1d/sim.c"
-TEST_PROGS	+= build/tests/simple_mesh1d/sim
+SIMPLE_MESH1D		:= tests/simple_mesh1d
+SIMPLE_MESH1D_SIM	:= $(SIMPLE_MESH1D)/sim.c
 
-build/tests/simple_mesh1d/test.inc: tests/simple_mesh1d/test.c
-	riscv64-unknown-elf-gcc -O2 -Wall -Wextra -ffreestanding -nostdlib \
-		-march=rv64i -mabi=lp64 \
-		-fno-delete-null-pointer-checks \
-		-o build/tests/simple_mesh1d/test \
-		tests/simple_mesh1d/test.c
-	riscv64-unknown-elf-objcopy -Obinary \
-		build/tests/simple_mesh1d/test \
-		build/tests/simple_mesh1d/test.bin
-	xxd -i build/tests/simple_mesh1d/test.bin \
-		> build/tests/simple_mesh1d/test.inc
+TESTS += $(SIMPLE_MESH1D)/sim
 
-build/tests/simple_mesh1d/sim.o: build/tests/simple_mesh1d/test.inc
-
-build/tests/simple_mesh1d/sim: $(MESH1D_TEST_OBJ) $(OBJS)
-	$(COMPILE) $(MESH1D_TEST_OBJ) $(OBJS) -o $@
+.PHONY: $(SIMPLE_MESH1D)/sim
+$(SIMPLE_MESH1D)/sim: $(SIMPLE_MESH1D_SIM) libgran.a
+	mkdir -p build/$(SIMPLE_MESH1D)
+	./scripts/gen-rv64-fw -d build -o $(SIMPLE_MESH1D)/test.inc $(SIMPLE_MESH1D)/test.c
+	$(COMPILE_TEST) $(SIMPLE_MESH1D_SIM) libgran.a -o build/$@
+	./scripts/gen-report -d build $@

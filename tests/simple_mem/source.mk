@@ -1,17 +1,21 @@
-TRAFFIC_OBJ	!= ./scripts/gen-deps --sources "tests/simple_mem/traffic_gen.c"
-NO_BUS_TEST_OBJ	!= ./scripts/gen-deps --sources "tests/simple_mem/no_bus.c"
-BUS_TEST_OBJ	!= ./scripts/gen-deps --sources "tests/simple_mem/bus.c"
-MANY_TEST_OBJ	!= ./scripts/gen-deps --sources "tests/simple_mem/many.c"
+SIMPLE_MEM		:= tests/simple_mem
+SIMPLE_MEM_NO_BUS	:= $(SIMPLE_MEM)/traffic_gen.c $(SIMPLE_MEM)/no_bus.c
+SIMPLE_MEM_BUS		:= $(SIMPLE_MEM)/traffic_gen.c $(SIMPLE_MEM)/bus.c
+SIMPLE_MEM_MANY		:= $(SIMPLE_MEM)/traffic_gen.c $(SIMPLE_MEM)/many.c
 
-TEST_PROGS	+= build/tests/simple_mem/no_bus \
-		   build/tests/simple_mem/bus \
-		   build/tests/simple_mem/many
+TESTS += $(SIMPLE_MEM)/no_bus $(SIMPLE_MEM)/bus $(SIMPLE_MEM)/many
 
-build/tests/simple_mem/no_bus: $(NO_BUS_TEST_OBJ) $(TRAFFIC_OBJ) $(OBJS)
-	$(COMPILE) $(NO_BUS_TEST_OBJ) $(TRAFFIC_OBJ) $(OBJS) -o $@
+build/$(SIMPLE_MEM):
+	mkdir -p $@
 
-build/tests/simple_mem/bus: $(BUS_TEST_OBJ) $(TRAFFIC_OBJ) $(OBJS)
-	$(COMPILE) $(BUS_TEST_OBJ) $(TRAFFIC_OBJ) $(OBJS) -o $@
+$(SIMPLE_MEM)/no_bus: build/$(SIMPLE_MEM) $(SIMPLE_MEM_NO_BUS) libgran.a
+	$(COMPILE_TEST) $(SIMPLE_MEM_NO_BUS) libgran.a -o build/$@
+	./scripts/gen-report -d build $@
 
-build/tests/simple_mem/many: $(MANY_TEST_OBJ) $(TRAFFIC_OBJ) $(OBJS)
-	$(COMPILE) $(MANY_TEST_OBJ) $(TRAFFIC_OBJ) $(OBJS) -o $@
+$(SIMPLE_MEM)/bus: build/$(SIMPLE_MEM) $(SIMPLE_MEM_BUS) libgran.a
+	$(COMPILE_TEST) $(SIMPLE_MEM_BUS) libgran.a -o build/$@
+	./scripts/gen-report -d build $@
+
+$(SIMPLE_MEM)/many: build/$(SIMPLE_MEM) $(SIMPLE_MEM_MANY) libgran.a
+	$(COMPILE_TEST) $(SIMPLE_MEM_MANY) libgran.a -o build/$@
+	./scripts/gen-report -d build $@

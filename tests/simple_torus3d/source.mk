@@ -1,18 +1,11 @@
-TORUS3D_TEST_OBJ	!= ./scripts/gen-deps --sources "tests/simple_torus3d/sim.c"
-TEST_PROGS		+= build/tests/simple_torus3d/sim
+SIMPLE_TORUS3D		:= tests/simple_torus3d
+SIMPLE_TORUS3D_SIM	:= $(SIMPLE_TORUS3D)/sim.c
 
-build/tests/simple_torus3d/test.inc: tests/simple_torus3d/test.c
-	riscv64-unknown-elf-gcc -O2 -Wall -Wextra -ffreestanding -nostdlib \
-		-march=rv64i -mabi=lp64 \
-		-o build/tests/simple_torus3d/test \
-		tests/simple_torus3d/test.c
-	riscv64-unknown-elf-objcopy -Obinary \
-		build/tests/simple_torus3d/test \
-		build/tests/simple_torus3d/test.bin
-	xxd -i build/tests/simple_torus3d/test.bin \
-		> build/tests/simple_torus3d/test.inc
+TESTS += $(SIMPLE_TORUS3D)/sim
 
-build/tests/simple_torus3d/sim.o: build/tests/simple_torus3d/test.inc
-
-build/tests/simple_torus3d/sim: $(TORUS3D_TEST_OBJ) $(OBJS)
-	$(COMPILE) $(TORUS3D_TEST_OBJ) $(OBJS) -o $@
+.PHONY: $(SIMPLE_TORUS3D)/sim
+$(SIMPLE_TORUS3D)/sim: $(SIMPLE_TORUS3D_SIM) libgran.a
+	mkdir -p build/$(SIMPLE_TORUS3D)
+	./scripts/gen-rv64-fw -d build -o $(SIMPLE_TORUS3D)/test.inc $(SIMPLE_TORUS3D)/test.c
+	$(COMPILE_TEST) $(SIMPLE_TORUS3D_SIM) libgran.a -o build/$@
+	./scripts/gen-report -d build $@

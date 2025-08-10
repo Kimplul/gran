@@ -1,6 +1,9 @@
-STARVED_TEST_OBJ	!= ./scripts/gen-deps --sources "tests/starved_mesh/sim.c"
+STARVED_MESH		:= tests/starved_mesh
+STARVED_MESH_SIM	:= $(STARVED_MESH)/sim.c
 
-TEST_PROGS	+= build/tests/starved_mesh/sim
+TESTS += $(STARVED_MESH)/sim
 
-build/tests/starved_mesh/sim: $(STARVED_TEST_OBJ) $(OBJS)
-	$(COMPILE) $(STARVED_TEST_OBJ) $(OBJS) -o $@
+$(STARVED_MESH)/sim: $(STARVED_MESH_SIM) libgran.a
+	mkdir -p build/$(STARVED_MESH)
+	$(COMPILE_TEST) $(STARVED_MESH_SIM) libgran.a -o build/$@
+	./scripts/gen-report -d build $@

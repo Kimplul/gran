@@ -82,8 +82,8 @@ static stat build_mesh3d(struct clock_domain *clk, uint8_t x, uint8_t y,
 		struct component *imem =
 			create_simple_mem(4096);
 		init_simple_mem(imem, 0,
-		                build_tests_simple_mesh3d_test_bin_len,
-		                build_tests_simple_mesh3d_test_bin);
+		                build_tests_simple_mesh3d_test_inc_bin_len,
+		                build_tests_simple_mesh3d_test_inc_bin);
 
 		uint64_t rcv = mesh3d_addr(i, j, k, 0, 0);
 		struct component *rv64 = create_simple_riscv64(rcv, 0,

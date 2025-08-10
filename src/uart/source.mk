@@ -1,1 +1,1 @@
-SOURCES += src/uart/simple_uart.c
+GRAN_SOURCES += src/uart/simple_uart.c

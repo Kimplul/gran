@@ -22,8 +22,8 @@ static stat build_node1d(struct clock_domain *clk, uint16_t x, uint16_t y)
 		for (int j = 0; j < y; ++j) {
 			struct component *imem = create_simple_mem(4096);
 			init_simple_mem(imem, 0,
-			                build_tests_simple_mesh1d_test_bin_len,
-			                build_tests_simple_mesh1d_test_bin);
+			                build_tests_simple_mesh1d_test_inc_bin_len,
+			                build_tests_simple_mesh1d_test_inc_bin);
 
 			uint64_t rcv = mesh1d_addr(i, j, 0);
 			struct component *rv64 = create_simple_riscv64(rcv, 0,

@@ -1,18 +1,11 @@
-MESH3D_TEST_OBJ		!= ./scripts/gen-deps --sources "tests/simple_mesh3d/sim.c"
-TEST_PROGS		+= build/tests/simple_mesh3d/sim
+SIMPLE_MESH3D		:= tests/simple_mesh3d
+SIMPLE_MESH3D_SIM	:= $(SIMPLE_MESH3D)/sim.c
 
-build/tests/simple_mesh3d/test.inc: tests/simple_mesh3d/test.c
-	riscv64-unknown-elf-gcc -O2 -Wall -Wextra -ffreestanding -nostdlib \
-		-march=rv64i -mabi=lp64 \
-		-o build/tests/simple_mesh3d/test \
-		tests/simple_mesh3d/test.c
-	riscv64-unknown-elf-objcopy -Obinary \
-		build/tests/simple_mesh3d/test \
-		build/tests/simple_mesh3d/test.bin
-	xxd -i build/tests/simple_mesh3d/test.bin \
-		> build/tests/simple_mesh3d/test.inc
+TESTS += $(SIMPLE_MESH3D)/sim
 
-build/tests/simple_mesh3d/sim.o: build/tests/simple_mesh3d/test.inc
-
-build/tests/simple_mesh3d/sim: $(MESH3D_TEST_OBJ) $(OBJS)
-	$(COMPILE) $(MESH3D_TEST_OBJ) $(OBJS) -o $@
+.PHONY: $(SIMPLE_MESH3D)/sim
+$(SIMPLE_MESH3D)/sim: $(SIMPLE_MESH3D_SIM) libgran.a
+	mkdir -p build/$(SIMPLE_MESH3D)
+	./scripts/gen-rv64-fw -d build -o $(SIMPLE_MESH3D)/test.inc $(SIMPLE_MESH3D)/test.c
+	$(COMPILE_TEST) $(SIMPLE_MESH3D_SIM) libgran.a -o build/$@
+	./scripts/gen-report -d build $@

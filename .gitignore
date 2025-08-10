@@ -1,6 +1,7 @@
 deps.mk
 docs/output
 build
-gran
+reports
+libgran.a
 !include/gran
 pdf

@@ -1,0 +1,23 @@
+#!/bin/sh
+
+BUILD=build
+NAME=
+
+while getopts "d:o:" opt; do
+	case "$opt" in
+		d) BUILD="$OPTARG";;
+		o) NAME="$OPTARG";;
+		*) echo "unrecognised option -$OPTARG" >&2; exit 1;
+	esac
+done
+
+shift $((OPTIND - 1))
+
+# might try to figure out how to support llvm as well in tests, but good enough
+# for now
+riscv64-unknown-elf-gcc -O2 -Wall -Wextra -ffreestanding -nostdlib \
+	-march=rv64i -mabi=lp64 -fno-delete-null-pointer-checks    \
+	-o "${BUILD}/${NAME}.elf" "${@}"
+
+riscv64-unknown-elf-objcopy -Obinary "${BUILD}/${NAME}.elf" "${BUILD}/${NAME}.bin"
+xxd -i "${BUILD}/${NAME}.bin" > "${BUILD}/${NAME}"

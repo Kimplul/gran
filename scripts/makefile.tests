@@ -1,0 +1,6 @@
+TESTS :=
+
+include tests/*/source.mk
+
+.PHONY: check
+check: $(TESTS)
