@@ -23,6 +23,8 @@ int main()
 	struct clock_domain *clk = create_clock_domain(NS(1));
 	clock_domain_add(clk, traffic_gen1);
 	clock_domain_add(clk, traffic_gen2);
+	clock_domain_add(clk, simple_mem1);
+	clock_domain_add(clk, simple_mem2);
 
 	struct gran_root *root = create_root();
 	root_add_clock(root, clk);
