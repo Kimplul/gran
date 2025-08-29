@@ -187,14 +187,12 @@ struct component *create_ideal_alloc(uint64_t max_spaces)
 {
 	struct alloc *a = calloc(1, sizeof(struct alloc));
 	a->spaces = spaces_create(max_spaces);
-	if (spaces_uninit(&a->spaces)) {
-		free(a);
-		return NULL;
-	}
-
 	for (size_t i = 0; i < max_spaces; ++i) {
 		struct space space = create_space();
-		spaces_append(&a->spaces, space);
+		if (!spaces_append(&a->spaces, space)) {
+			spaces_destroy(&a->spaces);
+			return NULL;
+		}
 	}
 
 	a->max_spaces = max_spaces;

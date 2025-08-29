@@ -6,7 +6,6 @@
 #include <stdbool.h>
 
 #include <gran/mem/simple_mem.h>
-#include <gran/torus3d/node.h>
 
 struct simple_mem {
 	struct component component;
