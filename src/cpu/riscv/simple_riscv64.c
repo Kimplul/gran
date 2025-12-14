@@ -661,6 +661,9 @@ static stat simple_riscv64_clock(struct simple_riscv64 *cpu)
 		return ENOSUCH;
 	}
 
+	if (ret != OK)
+		return ret;
+
 	if (cpu->ils.state == LDST_IDLE) {
 		cpu->ils.pkt = create_packet(cpu->rcv + 64,
 		                             cpu->pc,
@@ -675,13 +678,16 @@ send:
 		stat ret = SEND(cpu, cpu->imem, cpu->ils.pkt);
 		if (ret == EBUSY) {
 			cpu->ils.state = LDST_BLOCKED;
-			return ret;
+			return OK;
 		}
+
+		if (ret != OK)
+			return ret;
 
 		cpu->ils.state = LDST_SENT;
 	}
 
-	return ret;
+	return OK;
 }
 
 struct component *create_simple_riscv64(uint64_t rcv, uint64_t start_pc,
