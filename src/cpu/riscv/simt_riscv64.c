@@ -226,6 +226,21 @@ static stat simt_riscv64_clock(struct simt_riscv64 *c)
 	return r;
 }
 
+static void simt_riscv64_destroy(struct simt_riscv64 *c)
+{
+	foreach(lanes, core, &c->lanes) {
+		if ((*core)->destroy)
+			(*core)->destroy(*core);
+		else
+			free(*core);
+	}
+
+	lanes_destroy(&c->lanes);
+	reqs_destroy(&c->data_rqs);
+	reqs_destroy(&c->inst_rqs);
+	free(c);
+}
+
 struct component *create_simt_riscv64(
 		struct simt_riscv64_conf conf,
 		struct component *imem,
@@ -236,6 +251,7 @@ struct component *create_simt_riscv64(
 		return NULL;
 
 	new->component.clock = (clock_callback)simt_riscv64_clock;
+	new->component.destroy = (destroy_callback)simt_riscv64_destroy;
 
 	new->conf = conf;
 	new->imem = imem;

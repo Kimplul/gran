@@ -13,6 +13,8 @@ shift $((OPTIND - 1))
 
 for p in "$@"; do
 	mkdir -p "reports/${p}"
-	timeout --foreground 30s valgrind -q --error-exitcode=1 \
+	timeout --foreground 30s valgrind -q \
+		--leak-check=full            \
+		--error-exitcode=1           \
 		"./${BUILD}/${p}" > "reports/${p}/log"
 done
