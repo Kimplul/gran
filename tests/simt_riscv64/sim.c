@@ -62,10 +62,6 @@ static stat build_simt(struct clock_domain *clk, uint16_t clusters, uint16_t lan
 	mesh_node1d_connect(node, uart, 0);
 
 	struct component *mem = create_simple_mem(4096);
-	init_simple_mem(mem, 0,
-			build_tests_simt_riscv64_test_inc_bin_len,
-			build_tests_simt_riscv64_test_inc_bin);
-
 	clock_domain_add(clk, mem);
 	mesh_node1d_connect(node, mem, 1);
 
